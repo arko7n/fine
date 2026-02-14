@@ -3,10 +3,9 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import config from "@/lib/config";
 
 type Message = { role: "user" | "assistant"; content: string };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,7 +27,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/chat`, {
+      const res = await fetch(`${config.apiUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
