@@ -3,16 +3,14 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      docker: 20
-      ruby: 3.1
-      nodejs: 16
+      docker: 24
+      ruby: 3.3
+      nodejs: 20
     commands:
       - echo "cd into $CODEBUILD_SRC_DIR"
       - cd $CODEBUILD_SRC_DIR
-      # Download the copilot linux binary.
-      - wget -q https://ecs-cli-v2-release.s3.amazonaws.com/copilot-linux-v1.27.0
-      - mv ./copilot-linux-v1.27.0 ./copilot-linux
-      - chmod +x ./copilot-linux
+      # Download the latest copilot linux binary.
+      - curl -Lo ./copilot-linux https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux && chmod +x ./copilot-linux
   build:
     commands:
       - echo "Run your tests"
@@ -44,10 +42,6 @@ phases:
           exit 1;
         fi
       # Generate the cloudformation templates.
-      # The tag is the build ID but we replaced the colon ':' with a dash '-'.
-      # We truncate the tag (from the front) to 128 characters, the limit for Docker tags
-      # (https://docs.docker.com/engine/reference/commandline/tag/)
-      # Check if the `svc package` commanded exited with a non-zero status. If so, echo error msg and exit.
       - >
         for env in $pl_envs; do
           tag=$(echo ${CODEBUILD_BUILD_ID##*:}-$env | sed 's/:/-/g' | rev | cut -c 1-128 | rev)
