@@ -1,9 +1,11 @@
-# The manifest for the "api" service.
 name: api
 type: Load Balanced Web Service
 
 http:
   path: '/'
+  alias:
+    - name: api.dev.getfine.pro
+      hosted_zone: Z0711681207QBQSC8P8TL
   healthcheck:
     path: /health
     healthy_threshold: 2
