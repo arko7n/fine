@@ -1,0 +1,8 @@
+{
+  "name": "fine",
+  "private": true,
+  "scripts": {
+    "dev:api": "cd apps/api && yarn dev",
+    "dev:web": "cd apps/web && yarn dev"
+  }
+}

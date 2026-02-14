@@ -9,8 +9,8 @@
 ## Stack
 
 - **Web:** Next.js + Clerk + shadcn (Amplify).
-- **Backend:** TS (Express/Fastify or NestJS), Clerk JWT validation, REST + WebSocket. Single ECS task.
-- **Agent:** OpenClaw as npm dependency; backend starts gateway in-process on internal port and proxies agent WS to it. One `agent_id` per user; session key = `thread_id`.
+- **API:** TS (Express), Clerk JWT validation, REST + WebSocket. Single ECS task.
+- **Agent:** OpenClaw as npm dependency; API starts gateway in-process on internal port and proxies agent WS to it. One `agent_id` per user; session key = `thread_id`.
 - **DB:** Postgres (threads, thread_events, user_memory, OAuth tokens).
 
 ## Auth
