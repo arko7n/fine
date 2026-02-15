@@ -1,10 +1,5 @@
 name: dev
 type: Environment
 
-http:
-  public:
-    certificates:
-      - arn:aws:acm:us-west-2:753971796425:certificate/db93471b-94ef-4366-a5b5-fd9a8fb28bdb
-
 observability:
   container_insights: false

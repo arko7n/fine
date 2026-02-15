@@ -3,10 +3,10 @@ const config = {
     apiUrl: "http://localhost:3001",
   },
   dev: {
-    apiUrl: "https://api.dev.getfine.pro",
+    apiUrl: "https://api.dev.fine.getfine.pro",
   },
   prod: {
-    apiUrl: "https://api.prod.getfine.pro",
+    apiUrl: "https://api.prod.fine.getfine.pro",
   },
 } as const;
 
