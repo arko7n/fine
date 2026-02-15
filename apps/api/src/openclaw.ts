@@ -5,7 +5,7 @@ const OC_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN ?? "fine-internal";
 
 let child: ChildProcess | null = null;
 
-async function waitForPort(port: number, timeoutMs = 30_000): Promise<void> {
+async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -19,12 +19,20 @@ async function waitForPort(port: number, timeoutMs = 30_000): Promise<void> {
   console.warn(`[openclaw] port ${port} not reachable after ${timeoutMs}ms — continuing anyway`);
 }
 
+function resolveBin(): { bin: string; args: string[] } {
+  const baseArgs = ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
+  if (process.env.OPENCLAW_BIN) return { bin: process.env.OPENCLAW_BIN, args: baseArgs };
+  try {
+    const resolved = new URL("../node_modules/.bin/openclaw", import.meta.url).pathname;
+    return { bin: resolved, args: baseArgs };
+  } catch {
+    return { bin: "npx", args: ["openclaw", ...baseArgs] };
+  }
+}
+
 export async function startOpenClaw(): Promise<void> {
-  const bin = process.env.OPENCLAW_BIN ?? "npx";
-  const args =
-    bin === "npx"
-      ? ["openclaw", "gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"]
-      : ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
+  const { bin, args } = resolveBin();
+  console.log(`[openclaw] spawning: ${bin} ${args.join(" ")}`);
 
   child = spawn(bin, args, {
     stdio: ["ignore", "pipe", "pipe"],
@@ -34,6 +42,10 @@ export async function startOpenClaw(): Promise<void> {
       OPENCLAW_GATEWAY_PORT: String(OC_PORT),
       OPENCLAW_CONFIG_PATH: new URL("../openclaw.json", import.meta.url).pathname,
     },
+  });
+
+  child.on("error", (err) => {
+    console.error(`[openclaw] spawn error:`, err);
   });
 
   child.stdout?.on("data", (chunk: Buffer) => {

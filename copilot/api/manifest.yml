@@ -20,7 +20,7 @@ memory: 1024
 count: 1
 exec: true
 network:
-  connect: true
+  connect: false
 
 secrets:
   ANTHROPIC_API_KEY: /copilot/applications/fine/anthropic-api-key
