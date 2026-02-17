@@ -1,0 +1,12 @@
+{
+  "id": "fine-tools",
+  "name": "Fine Tools",
+  "description": "Thin proxy tools that delegate execution to the Fine backend",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "backendUrl": { "type": "string", "default": "http://localhost:3001" }
+    }
+  }
+}

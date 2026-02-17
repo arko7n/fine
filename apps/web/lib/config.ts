@@ -1,4 +1,4 @@
-const config = {
+const environments = {
   local: {
     apiUrl: "http://localhost:3001",
   },
@@ -10,8 +10,12 @@ const config = {
   },
 } as const;
 
-type Mode = keyof typeof config;
+type Mode = keyof typeof environments;
+const mode = (process.env.NEXT_PUBLIC_MODE ?? "dev") as Mode;
 
-const mode = (process.env.NEXT_PUBLIC_MODE ?? "local") as Mode;
+const config = {
+  ...environments[mode],
+  clerkPublishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",
+};
 
-export default config[mode];
+export default config;

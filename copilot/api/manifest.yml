@@ -17,10 +17,18 @@ image:
 
 cpu: 512
 memory: 1024
-count: 1
+count:
+  range: 1-10
+  cpu_percentage: 70
 exec: true
 network:
   connect: false
 
 secrets:
   ANTHROPIC_API_KEY: /copilot/applications/fine/anthropic-api-key
+  PGPASSWORD: /copilot/applications/fine/pg-password
+  PLAID_CLIENT_ID: /copilot/applications/fine/plaid-client-id
+  PLAID_SECRET: /copilot/applications/fine/plaid-secret
+  CLERK_PUBLISHABLE_KEY: /copilot/applications/fine/clerk-publishable-key
+  CLERK_SECRET_KEY: /copilot/applications/fine/clerk-secret-key
+  PIPEDREAM_SECRET_KEY: /copilot/applications/fine/pipedream-secret-key

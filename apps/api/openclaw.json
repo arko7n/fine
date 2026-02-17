@@ -10,5 +10,21 @@
         "chatCompletions": { "enabled": true }
       }
     }
+  },
+  "plugins": {
+    "load": {
+      "paths": ["./openclaw-plugins/fine-tools"]
+    },
+    "entries": {
+      "fine-tools": {
+        "enabled": true,
+        "config": {
+          "backendUrl": "http://localhost:3001"
+        }
+      }
+    }
+  },
+  "tools": {
+    "alsoAllow": ["plaid_*"]
   }
 }
