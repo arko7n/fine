@@ -8,9 +8,8 @@ import { startOpenClaw, stopOpenClaw } from "./modules/openclaw/openclaw.service
 const log = logger.child({ module: "bootstrap" });
 
 async function main() {
-  log.info("Starting OpenClaw gateway...");
   await startOpenClaw();
-  log.info("OpenClaw gateway started.");
+  log.info("OpenClaw gateway ready");
 
   const app = createApp();
 

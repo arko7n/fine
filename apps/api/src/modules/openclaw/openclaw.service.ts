@@ -19,13 +19,13 @@ async function isPortHealthy(port: number): Promise<boolean> {
   }
 }
 
-async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
+async function waitForPort(port: number, timeoutMs = 120_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (await isPortHealthy(port)) return;
     await new Promise((r) => setTimeout(r, 1000));
   }
-  log.warn(`port ${port} not reachable after ${timeoutMs}ms — continuing anyway`);
+  throw new Error(`OpenClaw gateway not reachable on port ${port} after ${timeoutMs}ms`);
 }
 
 function resolveBin(): { bin: string; args: string[] } {

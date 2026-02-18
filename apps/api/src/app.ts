@@ -16,10 +16,8 @@ export function createApp() {
   app.use(cors);
   app.use(requestLogger);
 
-  // Internal routes (called by OC gateway, no user auth)
+  // Pre-auth routes
   app.use("/api/internal/tools", toolsRouter);
-
-  app.use(auth);
 
   app.get("/health", (_req, res) => {
     if (!isHealthy()) {
@@ -28,6 +26,8 @@ export function createApp() {
     }
     res.json({ status: "ok" });
   });
+
+  app.use(auth);
 
   app.use("/api/threads", threadRouter);
   app.use("/api/chat", chatRouter);
