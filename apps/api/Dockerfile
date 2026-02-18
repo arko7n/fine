@@ -4,18 +4,13 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package.json yarn.lock ./
+COPY package*.json yarn.lock ./
 RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" && \
-    yarn install --frozen-lockfile --production=false
+    yarn install
 
-COPY tsconfig.json openclaw.json ./
-COPY src/ ./src/
-COPY openclaw-plugins/ ./openclaw-plugins/
+COPY . .
 
-RUN yarn build && yarn cache clean
-
-ENV NODE_ENV=production
-ENV PORT=3001
+RUN yarn build
 
 EXPOSE 3001
 
