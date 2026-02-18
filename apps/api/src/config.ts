@@ -29,7 +29,7 @@ const environments = {
     pgHost: "anthrive-db-1.cluster-ci1lbpace9fg.us-west-2.rds.amazonaws.com",
     pgDatabase: "anthrive",
     pgPort: 5432,
-    bypassAuth: false,
+    bypassAuth: true,
     pipedreamPublicKey: "",
     pipedreamProjectId: "",
   },
