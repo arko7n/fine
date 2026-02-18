@@ -71,7 +71,7 @@ export async function startOpenClaw(): Promise<void> {
   });
 
   child.stderr?.on("data", (chunk: Buffer) => {
-    log.warn(chunk.toString().trimEnd());
+    log.debug(chunk.toString().trimEnd());
   });
 
   child.on("exit", (code) => {

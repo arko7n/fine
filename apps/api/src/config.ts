@@ -24,7 +24,7 @@ const environments = {
   dev: {
     ...shared,
     port: 3001,
-    logLevel: "info",
+    logLevel: "debug",
     pgUser: "postgres",
     pgHost: "anthrive-db-1.cluster-ci1lbpace9fg.us-west-2.rds.amazonaws.com",
     pgDatabase: "anthrive",
