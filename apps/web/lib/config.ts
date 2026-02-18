@@ -16,6 +16,7 @@ const mode = (process.env.NEXT_PUBLIC_MODE ?? "dev") as Mode;
 const config = {
   ...environments[mode],
   clerkPublishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",
+  clerkSecretKey: process.env.CLERK_SECRET_KEY ?? "",
 };
 
 export default config;

@@ -10,7 +10,7 @@ export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
-}, { publishableKey: appConfig.clerkPublishableKey });
+}, { publishableKey: appConfig.clerkPublishableKey, secretKey: appConfig.clerkSecretKey });
 
 export const config = {
   matcher: [
