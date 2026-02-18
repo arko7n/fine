@@ -14,6 +14,7 @@ export const requestLogger = (pinoHttp as unknown as typeof pinoHttp.default)({
   customLogLevel(_req, res, error) {
     if (error || res.statusCode >= 500) return "error";
     if (res.statusCode >= 400) return "warn";
+    if (_req.url === "/health") return "trace";
     return "info";
   },
   serializers: {
