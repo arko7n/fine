@@ -49,6 +49,7 @@ export async function startOpenClaw(): Promise<void> {
   const { bin, args } = resolveBin();
 
   const projectRoot = new URL("../../..", import.meta.url).pathname;
+  log.info({ bin, args, cwd: projectRoot }, "spawning gateway");
 
   child = spawn(bin, args, {
     stdio: ["ignore", "pipe", "pipe"],
@@ -66,15 +67,19 @@ export async function startOpenClaw(): Promise<void> {
   });
 
   child.stdout?.on("data", (chunk: Buffer) => {
-    log.debug({ src: "stdout" }, chunk.toString().trimEnd());
+    log.debug(chunk.toString().trimEnd());
   });
 
   child.stderr?.on("data", (chunk: Buffer) => {
-    log.debug({ src: "stderr" }, chunk.toString().trimEnd());
+    log.warn(chunk.toString().trimEnd());
   });
 
   child.on("exit", (code) => {
-    log.info(`exited with code ${code}`);
+    if (code !== 0 && code !== null) {
+      log.error(`exited with code ${code}`);
+    } else {
+      log.info(`exited with code ${code}`);
+    }
     child = null;
   });
 
