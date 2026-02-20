@@ -7,6 +7,19 @@ Parameters:
     Type: String
 
 Resources:
+  # Allow tasks using the environment SG to communicate with each other
+  TaskToTaskIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Fn::ImportValue: !Sub ${App}-${Env}-EnvironmentSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3001
+      ToPort: 3001
+      SourceSecurityGroupId:
+        Fn::ImportValue: !Sub ${App}-${Env}-EnvironmentSecurityGroup
+      Description: Allow shared API to reach per-user tasks on port 3001
+
   EcsTaskPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:

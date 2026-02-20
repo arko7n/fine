@@ -27,7 +27,7 @@ function proxyTo(
 ) {
   const headers = { ...req.headers, authorization: `Bearer ${ocToken()}`, ...extraHeaders };
   const proxy = http.request(
-    { hostname, port, path: req.url, method: req.method, headers: headers as http.OutgoingHttpHeaders },
+    { hostname, port, path: req.originalUrl, method: req.method, headers: headers as http.OutgoingHttpHeaders },
     (proxyRes) => { res.writeHead(proxyRes.statusCode!, proxyRes.headers); proxyRes.pipe(res); },
   );
   req.pipe(proxy);
