@@ -15,6 +15,7 @@ import { getEnabled } from "./integrations.config.js";
 import { getTaskEndpoint } from "./modules/provision/provision.service.js";
 
 const log = logger.child({ src: "app" });
+const isPerUserTask = !!process.env.USER_ID;
 
 /** Pipe req/res to a target host:port, injecting OC auth token. */
 function proxyTo(
@@ -43,8 +44,8 @@ function userTaskProxy(req: express.Request, res: express.Response) {
   const userId = req.auth?.userId;
   if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
 
-  // Local backend: proxy to local OC gateway (uses default "main" agent)
-  if (appConfig.useLocalBackend) {
+  // Per-user task or local dev: proxy to local OC gateway
+  if (appConfig.useLocalBackend || isPerUserTask) {
     proxyTo(req, res, "127.0.0.1", appConfig.fcPort);
     return;
   }
@@ -94,8 +95,8 @@ export function createApp() {
 
   app.use(auth);
 
-  // Sessions: served locally or proxied to user's ECS task
-  app.use("/api/sessions", appConfig.useLocalBackend ? sessionsRouter : userTaskProxy);
+  // Sessions: served locally (per-user task or local dev) or proxied to user's ECS task
+  app.use("/api/sessions", (appConfig.useLocalBackend || isPerUserTask) ? sessionsRouter : userTaskProxy);
 
   // Control plane — served directly
   app.use("/api/provision", provisionRouter);
