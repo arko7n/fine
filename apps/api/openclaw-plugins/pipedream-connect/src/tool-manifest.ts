@@ -49,7 +49,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     name: "pd_run_action",
     label: "Run Action",
     description:
-      "Execute a Pipedream action with configured props. The account is resolved automatically from the user's connected accounts. Always call pd_describe_action first to understand the required props.",
+      "Execute a pre-built Pipedream action with configured props. The account is resolved automatically. Always call pd_describe_action first. Use this as a fallback when you don't know the app's API — prefer pd_api_proxy when you do.",
     app: "pipedream",
     action: "run_action",
     parameters: Type.Object({
@@ -67,7 +67,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     name: "pd_api_proxy",
     label: "API Proxy",
     description:
-      "Make a raw HTTP request through a Pipedream-connected account's authenticated proxy. Use this only when no pre-built action exists for what you need. Prefer pd_run_action when possible.",
+      "Make an authenticated HTTP request through a Pipedream-connected account. Prefer this when you know the app's API — it gives you direct control and is more reliable than pre-built actions. Use pd_run_action only when you don't know the API.",
     app: "pipedream",
     action: "api_proxy",
     parameters: Type.Object({

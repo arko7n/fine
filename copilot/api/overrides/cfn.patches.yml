@@ -1,0 +1,7 @@
+# Narrow the blanket "Deny iam:*" to exclude iam:PassRole so the task can
+# call ecs:RunTask (which requires passing execution + task roles).
+- op: remove
+  path: /Resources/TaskRole/Properties/Policies/0/PolicyDocument/Statement/0/Action
+- op: add
+  path: /Resources/TaskRole/Properties/Policies/0/PolicyDocument/Statement/0/NotAction
+  value: iam:PassRole

@@ -33,12 +33,15 @@ router.post("/invoke", async (req, res) => {
     return;
   }
 
+  log.trace({ app, action, params, userId }, "Tool invoke request");
+
   try {
     const result = await handler(params ?? {}, userId);
+    log.trace({ app, action, result }, "Tool invoke result");
     res.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Tool execution failed";
-    log.error({ app, action, err }, "Tool execution error");
+    log.error({ app, action, params, err }, "Tool execution error");
     res.status(500).json({ error: message });
   }
 });

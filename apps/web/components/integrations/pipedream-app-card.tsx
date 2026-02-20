@@ -32,28 +32,24 @@ export function PipedreamAppCard({
   const [imgError, setImgError] = useState(false);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-            {imgSrc && !imgError ? (
-              <img
-                src={imgSrc}
-                alt={name}
-                className="size-5"
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <Plug className="size-5" />
-            )}
-          </div>
-          <div>
-            <CardTitle className="text-base">{name}</CardTitle>
-            <CardDescription className="line-clamp-2">
-              {description}
-            </CardDescription>
-          </div>
+    <Card className="flex h-full flex-col">
+      <CardHeader className="flex-1">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+          {imgSrc && !imgError ? (
+            <img
+              src={imgSrc}
+              alt={name}
+              className="size-10 rounded-lg object-contain"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <Plug className="size-5" />
+          )}
         </div>
+        <CardTitle className="text-base">{name}</CardTitle>
+        <CardDescription className="line-clamp-2">
+          {description}
+        </CardDescription>
       </CardHeader>
       <CardFooter>
         {connected ? (
