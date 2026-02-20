@@ -1,19 +1,17 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useFineUser } from "@/hooks/use-fine-user";
+import { useMobile } from "@/hooks/use-mobile";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { UserButton } from "@clerk/nextjs";
 import { SidebarNav } from "./sidebar-nav";
 import { SidebarSessions } from "./sidebar-sessions";
-import { Separator } from "@/components/ui/separator";
-import { useSidebar } from "@/hooks/use-sidebar";
-import { useMobile } from "@/hooks/use-mobile";
-import { useFineUser } from "@/hooks/use-fine-user";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
   const { hasProvisioned } = useFineUser();
-  const showSessions = pathname.startsWith("/chat") && hasProvisioned;
+  const showSessions = hasProvisioned;
 
   return (
     <div className="flex h-full flex-col">

@@ -43,6 +43,7 @@ type EcsConfig = {
   taskDefinition: string;
   subnets: string[];
   securityGroups: string[];
+  assignPublicIp: "ENABLED" | "DISABLED";
   containerName: string;
 };
 
@@ -106,7 +107,8 @@ export async function discoverEcsConfig(): Promise<void> {
     throw new Error("Service network config has empty subnets or securityGroups");
   }
 
-  ecsConfig = { cluster, taskDefinition, subnets, securityGroups, containerName };
+  const assignPublicIp = (netConfig.assignPublicIp ?? "DISABLED") as "ENABLED" | "DISABLED";
+  ecsConfig = { cluster, taskDefinition, subnets, securityGroups, assignPublicIp, containerName };
   log.info({ ecsConfig }, "Discovered ECS config from service network configuration");
 }
 
@@ -150,7 +152,7 @@ export async function provisionTask(userId: string): Promise<{ provisionStatus: 
         awsvpcConfiguration: {
           subnets: cfg.subnets,
           securityGroups: cfg.securityGroups,
-          assignPublicIp: "DISABLED",
+          assignPublicIp: cfg.assignPublicIp,
         },
       },
       overrides: {
