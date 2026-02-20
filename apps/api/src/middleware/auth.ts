@@ -17,6 +17,11 @@ function bypassAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
+function perUserTaskAuth(req: Request, _res: Response, next: NextFunction) {
+  req.auth = { userId: process.env.USER_ID! };
+  next();
+}
+
 function extractClerkAuth(req: Request, _res: Response, next: NextFunction) {
   const clerkAuth = getAuth(req);
   if (!clerkAuth.userId) {
@@ -28,9 +33,13 @@ function extractClerkAuth(req: Request, _res: Response, next: NextFunction) {
 }
 
 /**
- * Auth middleware — uses Clerk in production, or falls back to a dummy user
- * when BYPASS_AUTH=true (for local dev without Clerk keys).
+ * Auth middleware:
+ * - Per-user ECS task (USER_ID set): use USER_ID directly (requests come from shared API proxy)
+ * - bypassAuth: dummy user for local dev
+ * - Otherwise: Clerk JWT verification
  */
-export const auth: RequestHandler[] = config.bypassAuth
-  ? [bypassAuth]
-  : [clerkMiddleware() as RequestHandler, extractClerkAuth];
+export const auth: RequestHandler[] = process.env.USER_ID
+  ? [perUserTaskAuth]
+  : config.bypassAuth
+    ? [bypassAuth]
+    : [clerkMiddleware() as RequestHandler, extractClerkAuth];
