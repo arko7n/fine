@@ -2,17 +2,13 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Sessions and Users
-CREATE TABLE fc_sessions (
-  id   TEXT PRIMARY KEY,
-  body JSONB NOT NULL DEFAULT '{}'
-);
+-- Users
 CREATE TABLE fc_users (
   id   TEXT PRIMARY KEY,
   body JSONB NOT NULL DEFAULT '{}'
 );
-CREATE INDEX idx_fc_sessions_user ON fc_sessions ((body ->> 'userId'));
-CREATE INDEX idx_fc_sessions_updated ON fc_sessions ((body ->> 'updatedAt') DESC);
+CREATE INDEX IF NOT EXISTS idx_fc_users_status
+  ON fc_users ((body ->> 'status')); 
 
 -- Connections (linked accounts)
 CREATE TABLE IF NOT EXISTS connections (

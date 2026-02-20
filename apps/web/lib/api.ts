@@ -67,6 +67,23 @@ export async function fetchIntegrations(): Promise<Integration[]> {
   return res.json();
 }
 
+// Pipedream Apps
+
+export type PipedreamApp = {
+  nameSlug: string;
+  name: string;
+  description: string;
+  imgSrc: string;
+};
+
+export async function searchPipedreamApps(q?: string, limit?: number): Promise<PipedreamApp[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (limit) params.set("limit", String(limit));
+  const res = await fetch(`${base}/api/pipedream/apps?${params}`);
+  return res.json();
+}
+
 // Connections
 
 export type Connection = {
@@ -115,4 +132,23 @@ export async function disconnectConnection(id: string): Promise<void> {
   await authedFetch(`${base}/api/connections/${id}`, {
     method: "DELETE",
   });
+}
+
+// Provisioning
+
+export type ProvisionStatus = "provisioning" | "running" | "stopped";
+
+export type MeResponse = {
+  status: ProvisionStatus;
+  endpoint?: { ip: string; port: number };
+};
+
+export async function provisionTask(): Promise<{ status: ProvisionStatus }> {
+  const res = await authedFetch(`${base}/api/provision`, { method: "POST" });
+  return res.json();
+}
+
+export async function fetchMe(): Promise<MeResponse> {
+  const res = await authedFetch(`${base}/api/me`);
+  return res.json();
 }

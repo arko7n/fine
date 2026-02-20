@@ -39,5 +39,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
 ];
 
 export const getEnabled = () => INTEGRATIONS.filter((i) => i.enabled);
-export const getEnabledToolPatterns = () =>
-  getEnabled().flatMap((i) => i.toolPatterns);
+export const getEnabledToolPatterns = () => [
+  ...getEnabled().flatMap((i) => i.toolPatterns),
+  "pd_*",
+];

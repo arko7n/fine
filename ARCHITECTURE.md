@@ -1,64 +1,51 @@
 # Architecture
 
-## UX vision
+## Per-User ECS Task Provisioning
 
-- **Threads = sessions.** ChatGPT-style: sidebar lists threads; open one to see full history. Resume any thread after days or weeks.
-- **Cross-thread memory.** Agent remembers the user across threads (preferences, linked accounts, past decisions). Per-thread history + shared user-level memory.
-- **Flow.** Start/resume thread → ask for analysis → agent (subagents if needed) uses memory + tools → report or trade plan → user 1-click executes. Scheduling creates a thread and notifies user.
+Each user gets a dedicated ECS Fargate task running the same API+OpenClaw image. The shared API handles control plane operations and proxies OC/session requests to the user's task.
 
-## Stack
+```
+Frontend (Amplify)
+  │
+  └──► Shared API (ALB)
+        ├── /api/provision       → provisions ECS task for user
+        ├── /api/me              → resolves user's task status
+        ├── /api/connections     → served directly
+        ├── /api/integrations    → served directly
+        ├── /v1/*                → proxied to user's ECS task
+        └── /api/sessions/*      → proxied to user's ECS task
+                                       │
+                                 User's ECS Task
+                                 (Express + OC gateway)
+```
 
-- **Web:** Next.js + Clerk + shadcn (Amplify).
-- **API:** TS (Express), Clerk JWT validation, REST + SSE. Single ECS task.
-- **Agent:** OpenClaw as npm dependency; API starts gateway in-process on internal port and proxies to it.
-- **DB:** Postgres (id + body JSONB pattern for all tables).
+## Key Modules
 
-## Auth
+- **`src/modules/provision/`** — user-store (fc_users CRUD), ECS task lifecycle (RunTask/DescribeTasks), provision router
+- **`src/modules/openclaw/`** — OC gateway process management, agent registration, runtime config
+- **`src/modules/connections/`** — provider-handler pattern for bank/Pipedream OAuth flows
+- **`openclaw-plugins/fine-persistence/`** — S3 backup/restore of agent state (scoped to `USER_ID` when set)
 
-Clerk for sign-up/sign-in. Backend validates Clerk JWT on REST. `BYPASS_AUTH=true` in local config for dev without Clerk.
+## Proxy Routing
 
-## Config: hardcoded values, secrets-only env vars
+`userTaskProxy` in `app.ts` handles all proxied routes:
+- **Local dev** (`useLocalOc: true`): proxies to `127.0.0.1:18789` with `x-openclaw-agent-id` header
+- **Production**: looks up user's task IP from `fc_users`, proxies to `taskIp:3001`
 
-Only keys and passwords live in environment variables. Everything else (ports, hostnames, feature flags, log levels) is hardcoded per environment in config files.
+## Per-User Task Mode
 
-- **API**: `apps/api/src/config.ts` — env blocks keyed by `APP_ENV` (local/dev/prod)
-- **Web**: `apps/web/lib/config.ts` — env blocks keyed by `NEXT_PUBLIC_MODE` (local/dev/prod)
-- **Secrets**: `apps/api/.env` (local), SSM Parameter Store via Copilot manifest (deployed)
+When `USER_ID` env var is set (on the ECS task):
+- `index.ts` registers only that user's agent at startup
+- `fine-persistence` plugin restores only that user's state from S3 (direct get, no list)
 
-Defaults to `dev` in cloud (no env vars needed). Local dev sets `APP_ENV=local` / `NEXT_PUBLIC_MODE=local` via `.env`.
+## Frontend Provision Flow
 
-Required env vars (secrets only):
+`ProvisionGate` wraps the app layout. On mount it calls `GET /api/me`:
+- **stopped** → shows `ProvisionCard` with a button that calls `POST /api/provision`
+- **provisioning** → polls `/api/me` every 3s until running
+- **running** → renders children (sidebar, sessions, chat)
 
-| Var | Where | Purpose |
-|-----|-------|---------|
-| `ANTHROPIC_API_KEY` | API | LLM provider |
-| `PGPASSWORD` | API | Database |
-| `PLAID_CLIENT_ID` | API | Plaid auth |
-| `PLAID_SECRET` | API | Plaid auth |
-| `CLERK_PUBLISHABLE_KEY` | API + Web | Auth provider (public key) |
-| `CLERK_SECRET_KEY` | API + Web | Auth provider (secret key) |
-| `PIPEDREAM_SECRET_KEY` | API | Pipedream auth |
+## Data
 
-## Database: id + body JSONB
-
-All tables use two columns: `id UUID` + `body JSONB`. Indices on `body ->> 'field'` for common queries.
-
-## Connections: unified provider registry
-
-Single `connections` table for all providers. `ProviderHandler` interface with pluggable handlers. Bank provider strategy (`plaid-direct` vs `plaid-pipedream`) toggled via config.
-
-## OpenClaw: thin proxy plugin
-
-No business logic inside OpenClaw. Single plugin (`fine-tools`) proxies all tool calls to `POST /api/internal/tools/invoke` with `{ app, action, params }`. All SDK calls, credentials, and logic live in `apps/api`.
-
-## Threads and memory
-
-- **Thread** = one conversation. Stored in `threads`; every message in `thread_events`. Resume = load history from API.
-- **Crash-safe:** Persist every turn to `thread_events` as it happens.
-- **Cross-thread memory:** `user_memory` (user_id, payload JSONB). Inject into OpenClaw at session start.
-
-## Deploy
-
-- **Web:** Amplify, build `apps/web`; env: `NEXT_PUBLIC_MODE`, `CLERK_SECRET_KEY`.
-- **Backend:** One ECS task (Copilot). Env: secrets only (see table above). Config hardcoded per `APP_ENV`.
-- **Scheduling:** EventBridge → backend API → OpenClaw run for user → results to DB, notify user.
+`fc_users` table stores provision state as JSONB: `{ status, taskArn, taskIp, provisionedAt }`.
+`connections` table stores linked accounts (bank, Pipedream) as JSONB per user.

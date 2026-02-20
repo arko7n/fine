@@ -73,7 +73,7 @@ function allAgentIds(): string[] {
 }
 
 router.get("/", (req, res) => {
-  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId] : [];
+  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId.toLowerCase()] : [];
   const sessions: Array<{ id: string; title: string; updatedAt?: string }> = [];
 
   for (const agentId of agents) {
@@ -89,7 +89,7 @@ router.get("/", (req, res) => {
 });
 
 router.get("/:id/messages", (req, res) => {
-  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId] : [];
+  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId.toLowerCase()] : [];
 
   for (const agentId of agents) {
     const entry = readIndex(agentId)[req.params.id];

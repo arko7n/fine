@@ -7,25 +7,13 @@ import { SidebarSessions } from "./sidebar-sessions";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useMobile } from "@/hooks/use-mobile";
+import { useSessionsMaybe } from "@/hooks/use-sessions";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import type { Session } from "@/hooks/use-sessions";
 
-type Props = {
-  sessions: Session[];
-  activeSessionId: string | null;
-  onSelectSession: (id: string) => void;
-  onNewChat: () => void;
-};
-
-function SidebarContent({
-  sessions,
-  activeSessionId,
-  onSelectSession,
-  onNewChat,
-  onNavigate,
-}: Props & { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const showThreads = pathname.startsWith("/chat");
+  const ctx = useSessionsMaybe();
+  const showThreads = pathname.startsWith("/chat") && ctx;
 
   return (
     <div className="flex h-full flex-col">
@@ -37,10 +25,10 @@ function SidebarContent({
         <>
           <Separator className="my-2" />
           <SidebarSessions
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            onSelectSession={onSelectSession}
-            onNewChat={onNewChat}
+            sessions={ctx.sessions}
+            activeSessionId={ctx.activeSessionId}
+            onSelectSession={ctx.selectSession}
+            onNewChat={ctx.newChat}
             onNavigate={onNavigate}
           />
         </>
@@ -60,7 +48,7 @@ function SidebarContent({
   );
 }
 
-export function AppSidebar(props: Props) {
+export function AppSidebar() {
   const isMobile = useMobile();
   const { open, setOpen } = useSidebar();
 
@@ -68,7 +56,7 @@ export function AppSidebar(props: Props) {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 p-0">
-          <SidebarContent {...props} onNavigate={() => setOpen(false)} />
+          <SidebarContent onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     );
@@ -76,7 +64,7 @@ export function AppSidebar(props: Props) {
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-muted/30">
-      <SidebarContent {...props} />
+      <SidebarContent />
     </aside>
   );
 }

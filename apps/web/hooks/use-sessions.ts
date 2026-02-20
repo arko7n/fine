@@ -77,3 +77,8 @@ export function useSessions() {
   if (!ctx) throw new Error("useSessions must be used within SessionsProvider");
   return ctx;
 }
+
+/** Safe version — returns null when outside SessionsProvider (e.g. before provisioning). */
+export function useSessionsMaybe() {
+  return useContext(SessionsContext);
+}

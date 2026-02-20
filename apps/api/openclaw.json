@@ -14,7 +14,7 @@
   },
   "plugins": {
     "load": {
-      "paths": ["./openclaw-plugins/fine-tools", "./openclaw-plugins/fine-persistence"]
+      "paths": ["./openclaw-plugins/fine-tools", "./openclaw-plugins/fine-persistence", "./openclaw-plugins/pipedream-connect"]
     },
     "entries": {
       "fine-tools": {
@@ -25,6 +25,12 @@
       },
       "fine-persistence": {
         "enabled": true
+      },
+      "pipedream-connect": {
+        "enabled": true,
+        "config": {
+          "backendUrl": "http://localhost:3001"
+        }
       }
     }
   },

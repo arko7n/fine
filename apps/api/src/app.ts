@@ -5,57 +5,71 @@ import { auth } from "./middleware/auth.js";
 import { requestLogger } from "./middleware/request-logger.js";
 import { connectionsRouter } from "./modules/connections/index.js";
 import toolsRouter from "./modules/tools/tools.router.js";
+import pipedreamRouter from "./modules/pipedream/pipedream.router.js";
 import sessionsRouter from "./modules/sessions/sessions.router.js";
+import { provisionRouter, meRouter } from "./modules/provision/provision.router.js";
 import appConfig from "./config.js";
 import logger from "./lib/logger.js";
 import { ocToken, ensureAgent } from "./modules/openclaw/openclaw.service.js";
 import { getEnabled } from "./integrations.config.js";
+import { getTaskEndpoint } from "./modules/provision/provision.service.js";
 
 const log = logger.child({ src: "app" });
 
-/** Ensure user has an OC agent registered in the runtime config. */
-function ensureSessionAndAgent(req: express.Request, _res: express.Response, next: express.NextFunction) {
-  if (req.auth?.userId) ensureAgent(req.auth.userId);
-  next();
-}
-
-/** Inject agent ID header so OC routes to the user's agent. */
-function injectAgentHeader(req: express.Request, _res: express.Response, next: express.NextFunction) {
-  if (req.auth?.userId) {
-    req.headers["x-openclaw-agent-id"] = req.auth.userId;
-  }
-  next();
-}
-
-/** Raw reverse proxy to OpenClaw gateway. */
-function fcProxy(req: express.Request, res: express.Response) {
+/** Pipe req/res to a target host:port, injecting OC auth token. */
+function proxyTo(
+  req: express.Request,
+  res: express.Response,
+  hostname: string,
+  port: number,
+  extraHeaders?: Record<string, string>,
+) {
+  const headers = { ...req.headers, authorization: `Bearer ${ocToken()}`, ...extraHeaders };
   const proxy = http.request(
-    {
-      hostname: "127.0.0.1",
-      port: appConfig.fcPort,
-      path: req.url,
-      method: req.method,
-      headers: { ...req.headers, authorization: `Bearer ${ocToken()}` },
-    },
-    (proxyRes) => {
-      res.writeHead(proxyRes.statusCode!, proxyRes.headers);
-      proxyRes.pipe(res);
-    }
+    { hostname, port, path: req.url, method: req.method, headers: headers as http.OutgoingHttpHeaders },
+    (proxyRes) => { res.writeHead(proxyRes.statusCode!, proxyRes.headers); proxyRes.pipe(res); },
   );
   req.pipe(proxy);
   proxy.on("error", (err) => {
-    log.error({ err }, "FC proxy error");
-    if (!res.headersSent) {
-      res.status(502).json({ error: "FC unavailable" });
+    log.error({ err, hostname, port }, "Proxy error");
+    if (!res.headersSent) res.status(502).json({ error: "Upstream unavailable" });
+  });
+}
+
+/**
+ * Proxy to user's ECS task, or fall back to local OC when not on ECS.
+ */
+function userTaskProxy(req: express.Request, res: express.Response) {
+  const userId = req.auth?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  // Local backend: ensure agent exists, proxy to local OC gateway
+  if (appConfig.useLocalBackend) {
+    ensureAgent(userId);
+    proxyTo(req, res, "127.0.0.1", appConfig.fcPort, {
+      "x-openclaw-agent-id": userId.toLowerCase(),
+    });
+    return;
+  }
+
+  // ECS: resolve user's task endpoint
+  getTaskEndpoint(userId).then((endpoint) => {
+    if (!endpoint || endpoint.status !== "running") {
+      res.status(503).json({ error: "Task not running", status: endpoint?.status ?? "stopped" });
+      return;
     }
+    proxyTo(req, res, endpoint.ip, endpoint.port);
+  }).catch((err) => {
+    log.error({ err, userId }, "Failed to resolve task endpoint");
+    if (!res.headersSent) res.status(500).json({ error: "Failed to resolve task endpoint" });
   });
 }
 
 export function createApp() {
   const app = express();
 
-  // Raw proxy to OC — auth + agent routing + ensureSession, before json parsing
-  app.all("/v1/{*path}", cors, ...auth, ensureSessionAndAgent, injectAgentHeader, fcProxy);
+  // Raw proxy to user's OC task — auth, before json parsing
+  app.all("/v1/{*path}", cors, ...auth, userTaskProxy);
 
   app.use(express.json({ limit: "1mb" }));
   app.use(cors);
@@ -70,10 +84,11 @@ export function createApp() {
         description,
         icon,
         provider,
-      }))
+      })),
     );
   });
 
+  app.use("/api/pipedream", pipedreamRouter);
   app.use("/api/internal/tools", toolsRouter);
 
   app.get("/health", (_req, res) => {
@@ -82,7 +97,12 @@ export function createApp() {
 
   app.use(auth);
 
-  app.use("/api/sessions", sessionsRouter);
+  // Sessions: served locally or proxied to user's ECS task
+  app.use("/api/sessions", appConfig.useLocalBackend ? sessionsRouter : userTaskProxy);
+
+  // Control plane — served directly
+  app.use("/api/provision", provisionRouter);
+  app.use("/api/me", meRouter);
   app.use("/api/connections", connectionsRouter);
 
   return app;

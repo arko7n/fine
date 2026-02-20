@@ -8,6 +8,9 @@ if (INTEGRATIONS.find((i) => i.id === "plaid")?.enabled) {
   import("./handlers/plaid.js");
 }
 
+// Always register Pipedream tools (not gated on integrations.config)
+import("../pipedream/pipedream-tools.handler.js");
+
 const log = logger.child({ src: "tools.router" });
 const router = Router();
 

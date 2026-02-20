@@ -89,27 +89,29 @@ function writeRuntimeConfig(cfg: Record<string, unknown>): void {
  * config within 200ms.
  */
 export function ensureAgent(userId: string): void {
-  if (knownAgents.has(userId)) return;
+  // OC normalizes agent IDs to lowercase — match that here
+  const agentId = userId.toLowerCase();
+  if (knownAgents.has(agentId)) return;
 
-  log.info(`Creating OC agent for user ${userId}`);
+  log.info(`Creating OC agent for user ${userId} (agentId=${agentId})`);
 
   // Read current runtime config, add agent, write back
   const cfg = JSON.parse(fs.readFileSync(runtimeConfigPath, "utf-8"));
   const list: Array<{ id: string; workspace: string }> = cfg.agents?.list ?? [];
-  if (!list.some((a) => a.id === userId)) {
-    list.push({ id: userId, workspace: `~/.openclaw/workspace-${userId}` });
+  if (!list.some((a) => a.id === agentId)) {
+    list.push({ id: agentId, workspace: `~/.openclaw/workspace-${agentId}` });
     cfg.agents = { ...cfg.agents, list };
     writeRuntimeConfig(cfg);
   }
 
   // Create workspace + sessions directories
   const home = process.env.HOME ?? "/tmp";
-  const workspaceDir = path.join(home, `.openclaw/workspace-${userId}`);
-  const sessionsDir = path.join(home, `.openclaw/agents/${userId}/sessions`);
+  const workspaceDir = path.join(home, `.openclaw/workspace-${agentId}`);
+  const sessionsDir = path.join(home, `.openclaw/agents/${agentId}/sessions`);
   fs.mkdirSync(workspaceDir, { recursive: true });
   fs.mkdirSync(sessionsDir, { recursive: true });
 
-  knownAgents.add(userId);
+  knownAgents.add(agentId);
 }
 
 export async function startOpenClaw(): Promise<void> {

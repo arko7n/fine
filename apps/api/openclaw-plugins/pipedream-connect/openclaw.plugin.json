@@ -1,0 +1,12 @@
+{
+  "id": "pipedream-connect",
+  "name": "Pipedream Connect",
+  "description": "Dynamic integration tools that discover and execute Pipedream-connected app actions",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "backendUrl": { "type": "string", "default": "http://localhost:3001" }
+    }
+  }
+}
