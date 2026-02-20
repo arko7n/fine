@@ -1,10 +1,10 @@
 import { Router } from "express";
 import fs from "node:fs";
 import path from "node:path";
-import config from "../../config.js";
 
 const router = Router();
 const HOME = process.env.HOME ?? "/tmp";
+const AGENT_ID = "main";
 
 type Message = { role: "user" | "assistant"; content: string };
 type SessionEntry = { sessionId: string; updatedAt?: string };
@@ -43,45 +43,31 @@ function titleFromMessages(messages: Message[]): string {
   return last.content.length > 60 ? last.content.slice(0, 60) + "..." : last.content;
 }
 
-function sessionsDir(agentId: string): string {
-  return path.join(HOME, `.openclaw/agents/${agentId}/sessions`);
-}
+const SESSIONS_DIR = path.join(HOME, `.openclaw/agents/${AGENT_ID}/sessions`);
 
-function readIndex(agentId: string): Record<string, SessionEntry> {
+function readIndex(): Record<string, SessionEntry> {
   try {
-    return JSON.parse(fs.readFileSync(path.join(sessionsDir(agentId), "sessions.json"), "utf-8"));
+    return JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, "sessions.json"), "utf-8"));
   } catch {
     return {};
   }
 }
 
-function readTranscript(agentId: string, ocSessionId: string): string | null {
+function readTranscript(ocSessionId: string): string | null {
   try {
-    return fs.readFileSync(path.join(sessionsDir(agentId), `${ocSessionId}.jsonl`), "utf-8");
+    return fs.readFileSync(path.join(SESSIONS_DIR, `${ocSessionId}.jsonl`), "utf-8");
   } catch {
     return null;
   }
 }
 
-function allAgentIds(): string[] {
-  try {
-    const dir = path.join(HOME, ".openclaw/agents");
-    return fs.readdirSync(dir).filter((n) => fs.statSync(path.join(dir, n)).isDirectory());
-  } catch {
-    return [];
-  }
-}
-
-router.get("/", (req, res) => {
-  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId.toLowerCase()] : [];
+router.get("/", (_req, res) => {
   const sessions: Array<{ id: string; title: string; updatedAt?: string }> = [];
 
-  for (const agentId of agents) {
-    for (const [key, entry] of Object.entries(readIndex(agentId))) {
-      const transcript = readTranscript(agentId, entry.sessionId);
-      const msgs = transcript ? parseTranscript(transcript) : [];
-      sessions.push({ id: key, title: titleFromMessages(msgs), updatedAt: entry.updatedAt });
-    }
+  for (const [key, entry] of Object.entries(readIndex())) {
+    const transcript = readTranscript(entry.sessionId);
+    const msgs = transcript ? parseTranscript(transcript) : [];
+    sessions.push({ id: key, title: titleFromMessages(msgs), updatedAt: entry.updatedAt });
   }
 
   sessions.sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
@@ -89,15 +75,10 @@ router.get("/", (req, res) => {
 });
 
 router.get("/:id/messages", (req, res) => {
-  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId.toLowerCase()] : [];
-
-  for (const agentId of agents) {
-    const entry = readIndex(agentId)[req.params.id];
-    if (!entry) continue;
-    const transcript = readTranscript(agentId, entry.sessionId);
-    if (transcript) return res.json(parseTranscript(transcript));
-  }
-
+  const entry = readIndex()[req.params.id];
+  if (!entry) { res.json([]); return; }
+  const transcript = readTranscript(entry.sessionId);
+  if (transcript) { res.json(parseTranscript(transcript)); return; }
   res.json([]);
 });
 

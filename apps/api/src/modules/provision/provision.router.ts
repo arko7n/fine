@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { catchAsync } from "../../lib/errors.js";
-import { provisionTask, resolveTaskStatus } from "./provision.service.js";
+import { provisionTask, deprovisionTask, resolveTaskStatus } from "./provision.service.js";
 
 export const provisionRouter = Router();
 
@@ -13,6 +13,19 @@ provisionRouter.post(
       return;
     }
     const result = await provisionTask(req.auth.userId);
+    res.json(result);
+  }),
+);
+
+/** DELETE /api/provision — stop the user's ECS task */
+provisionRouter.delete(
+  "/",
+  catchAsync(async (req, res) => {
+    if (!req.auth.userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+    const result = await deprovisionTask(req.auth.userId);
     res.json(result);
   }),
 );

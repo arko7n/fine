@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execSync } from "node:child_process";
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import constants from "../../../constants.json" with { type: "json" };
 
 type PluginApi = {
@@ -14,6 +14,7 @@ type PluginApi = {
 
 const BUCKET = constants.s3.bucket;
 const S3_PREFIX = "oc-state";
+const AGENT_ID = "main";
 
 function tmpPath(): string {
   return path.join(os.tmpdir(), `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.tar.gz`);
@@ -22,21 +23,18 @@ function tmpPath(): string {
 const plugin = {
   id: "fine-persistence",
   name: "Fine Persistence",
-  description: "Persists full agent state (workspace + sessions) to S3 as tarballs",
+  description: "Persists main agent state to S3, keyed by userId",
 
   register(api: PluginApi) {
     const s3 = new S3Client({});
 
-    function agentDir(id: string): string {
-      return api.resolvePath(`~/.openclaw/agents/${id}`);
-    }
+    // Local dirs always use the "main" agent
+    const mainAgentDir = api.resolvePath(`~/.openclaw/agents/${AGENT_ID}`);
+    const mainWorkspaceDir = api.resolvePath(`~/.openclaw/workspace-${AGENT_ID}`);
 
-    function workspaceDir(id: string): string {
-      return api.resolvePath(`~/.openclaw/workspace-${id}`);
-    }
-
-    function s3Key(agentId: string, name: string): string {
-      return `${S3_PREFIX}/${agentId}/${name}`;
+    // S3 keys use userId for per-user isolation
+    function s3Key(userId: string, name: string): string {
+      return `${S3_PREFIX}/${userId}/${name}`;
     }
 
     async function uploadDir(dir: string, key: string): Promise<void> {
@@ -72,74 +70,43 @@ const plugin = {
       }
     }
 
-    async function restoreAgent(agentId: string): Promise<boolean> {
-      const [gotAgent, gotWorkspace] = await Promise.all([
-        downloadDir(s3Key(agentId, "agentdir.tar.gz"), agentDir(agentId)),
-        downloadDir(s3Key(agentId, "workspace.tar.gz"), workspaceDir(agentId)),
-      ]);
-      if (gotAgent || gotWorkspace) {
-        api.logger.info(`fine-persistence: restored agent=${agentId} (agentdir=${gotAgent}, workspace=${gotWorkspace})`);
-        return true;
-      }
-      return false;
-    }
-
-    // gateway_start: restore agent state from S3
-    // If USER_ID is set, only restore that single user (per-user ECS task mode).
-    // Otherwise, restore all agents (shared gateway / local dev mode).
+    // gateway_start: restore main agent state from S3 using userId key
     api.on("gateway_start", async () => {
-      const scopedUserId = process.env.USER_ID;
-
-      if (scopedUserId) {
-        const agentId = scopedUserId.toLowerCase();
-        api.logger.info(`fine-persistence: USER_ID set, restoring single agent=${agentId}`);
-        try {
-          const restored = await restoreAgent(agentId);
-          api.logger.info(`fine-persistence: single-agent restore ${restored ? "succeeded" : "no data found"}`);
-        } catch (err) {
-          api.logger.error("fine-persistence: single-agent restore failed, starting fresh", err);
-        }
+      const userId = process.env.USER_ID;
+      if (!userId) {
+        api.logger.info("fine-persistence: no USER_ID set, skipping S3 restore");
         return;
       }
 
-      api.logger.info(`fine-persistence: restoring all agents from s3://${BUCKET}/${S3_PREFIX}/`);
+      const s3UserId = userId.toLowerCase();
+      api.logger.info(`fine-persistence: restoring state for userId=${s3UserId} into agent=${AGENT_ID}`);
 
-      let restored = 0;
       try {
-        const { CommonPrefixes } = await s3.send(new ListObjectsV2Command({
-          Bucket: BUCKET,
-          Prefix: `${S3_PREFIX}/`,
-          Delimiter: "/",
-        }));
-
-        for (const prefix of CommonPrefixes ?? []) {
-          const agentId = prefix.Prefix?.replace(`${S3_PREFIX}/`, "").replace(/\/$/, "");
-          if (!agentId) continue;
-          if (await restoreAgent(agentId)) restored++;
-        }
+        const [gotAgent, gotWorkspace] = await Promise.all([
+          downloadDir(s3Key(s3UserId, "agentdir.tar.gz"), mainAgentDir),
+          downloadDir(s3Key(s3UserId, "workspace.tar.gz"), mainWorkspaceDir),
+        ]);
+        api.logger.info(`fine-persistence: restore ${gotAgent || gotWorkspace ? "succeeded" : "no data found"} (agentdir=${gotAgent}, workspace=${gotWorkspace})`);
       } catch (err) {
-        api.logger.error("fine-persistence: S3 restore failed, starting fresh", err);
+        api.logger.error("fine-persistence: restore failed, starting fresh", err);
       }
-
-      api.logger.info(`fine-persistence: restored ${restored} agents from S3`);
     });
 
-    // agent_end: snapshot entire agent state to S3
-    api.on("agent_end", async (_event: Record<string, unknown>, ctx: Record<string, unknown>) => {
-      api.logger.info(`fine-persistence: agent_end ctx keys=[${Object.keys(ctx).join(", ")}]`);
-      api.logger.info(`fine-persistence: agent_end ctx=${JSON.stringify(ctx)}`);
-
-      const agentId = ctx.agentId as string | undefined;
-      if (!agentId) {
-        throw new Error(`fine-persistence: agent_end missing ctx.agentId. ctx keys: ${Object.keys(ctx).join(", ")}`);
+    // agent_end: snapshot main agent state to S3 using userId key
+    api.on("agent_end", async () => {
+      const userId = process.env.USER_ID;
+      if (!userId) {
+        api.logger.info("fine-persistence: no USER_ID set, skipping S3 snapshot");
+        return;
       }
 
+      const s3UserId = userId.toLowerCase();
       await Promise.all([
-        uploadDir(agentDir(agentId), s3Key(agentId, "agentdir.tar.gz")),
-        uploadDir(workspaceDir(agentId), s3Key(agentId, "workspace.tar.gz")),
+        uploadDir(mainAgentDir, s3Key(s3UserId, "agentdir.tar.gz")),
+        uploadDir(mainWorkspaceDir, s3Key(s3UserId, "workspace.tar.gz")),
       ]);
 
-      api.logger.info(`fine-persistence: snapshot saved for agent=${agentId}, s3://${BUCKET}/${s3Key(agentId, "*.tar.gz")}`);
+      api.logger.info(`fine-persistence: snapshot saved for userId=${s3UserId}`);
     });
   },
 };

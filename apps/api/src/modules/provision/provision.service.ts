@@ -1,4 +1,7 @@
-import { ECSClient, RunTaskCommand, DescribeTasksCommand } from "@aws-sdk/client-ecs";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { ECSClient, RunTaskCommand, DescribeTasksCommand, StopTaskCommand } from "@aws-sdk/client-ecs";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
 import { getUser, upsertUser, updateUserBody, type UserStatus } from "./user-store.js";
@@ -8,6 +11,29 @@ const log = logger.child({ src: "provision.service" });
 const ecs = new ECSClient({});
 
 const TASK_PORT = 3001;
+
+// --- Local provision (stores userId to file, sets process.env.USER_ID) ---
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const LOCAL_USER_FILE = path.join(projectRoot, ".local-user-id");
+
+function readLocalUserId(): string | null {
+  try {
+    return fs.readFileSync(LOCAL_USER_FILE, "utf-8").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Call at startup to restore USER_ID from local file (local dev only). */
+export function initLocalUser(): void {
+  if (!config.useLocalBackend) return;
+  const userId = readLocalUserId();
+  if (userId) {
+    process.env.USER_ID = userId;
+    log.info({ userId }, "Restored local USER_ID from file");
+  }
+}
 
 // --- ECS config auto-discovery from task metadata ---
 
@@ -84,6 +110,13 @@ export type TaskEndpoint = {
 };
 
 export async function provisionTask(userId: string): Promise<{ status: UserStatus }> {
+  if (config.useLocalBackend) {
+    fs.writeFileSync(LOCAL_USER_FILE, userId);
+    process.env.USER_ID = userId;
+    log.info({ userId }, "Local provision — saved USER_ID");
+    return { status: "running" };
+  }
+
   const existing = await getUser(userId);
   if (existing && (existing.body.status === "running" || existing.body.status === "provisioning")) {
     return { status: existing.body.status };
@@ -131,7 +164,7 @@ export async function provisionTask(userId: string): Promise<{ status: UserStatu
 
 export async function resolveTaskStatus(userId: string): Promise<{ status: UserStatus; endpoint?: { ip: string; port: number } }> {
   if (config.useLocalBackend) {
-    return { status: "running" };
+    return { status: readLocalUserId() ? "running" : "stopped" };
   }
 
   const user = await getUser(userId);
@@ -181,6 +214,37 @@ export async function resolveTaskStatus(userId: string): Promise<{ status: UserS
   }
 
   return { status: "provisioning" };
+}
+
+export async function deprovisionTask(userId: string): Promise<{ status: UserStatus }> {
+  if (config.useLocalBackend) {
+    try { fs.unlinkSync(LOCAL_USER_FILE); } catch { /* already gone */ }
+    delete process.env.USER_ID;
+    log.info({ userId }, "Local deprovision — removed USER_ID");
+    return { status: "stopped" };
+  }
+
+  const user = await getUser(userId);
+  if (!user || user.body.status === "stopped") {
+    return { status: "stopped" };
+  }
+
+  if (user.body.taskArn) {
+    const cfg = requireEcsConfig();
+    try {
+      await ecs.send(new StopTaskCommand({
+        cluster: cfg.cluster,
+        task: user.body.taskArn,
+        reason: "User-initiated deprovision",
+      }));
+      log.info({ userId, taskArn: user.body.taskArn }, "ECS task stopped");
+    } catch (err) {
+      log.warn({ err, userId, taskArn: user.body.taskArn }, "Failed to stop ECS task (may already be stopped)");
+    }
+  }
+
+  await updateUserBody(userId, { status: "stopped" });
+  return { status: "stopped" };
 }
 
 export async function getTaskEndpoint(userId: string): Promise<TaskEndpoint | null> {

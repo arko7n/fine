@@ -16,7 +16,6 @@ let reusedExisting = false;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const runtimeConfigPath = path.join(projectRoot, ".openclaw-runtime.json");
-const knownAgents = new Set<string>();
 
 async function isHealthy(): Promise<boolean> {
   try {
@@ -48,7 +47,7 @@ function resolveBin(): string {
   }
 }
 
-function buildRuntimeConfig(agentIds: string[]): Record<string, unknown> {
+function buildRuntimeConfig(): Record<string, unknown> {
   const baseConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, "openclaw.json"), "utf-8"));
 
   // OC resolves relative plugin paths from its own workspace, not CWD — make them absolute
@@ -65,53 +64,11 @@ function buildRuntimeConfig(agentIds: string[]): Record<string, unknown> {
     delete baseConfig.tools?.alsoAllow;
   }
 
-  // Add per-user agents
-  if (agentIds.length > 0) {
-    baseConfig.agents = {
-      ...baseConfig.agents,
-      list: agentIds.map((id) => ({
-        id,
-        workspace: `~/.openclaw/workspace-${id}`,
-      })),
-    };
-  }
-
   return baseConfig;
 }
 
 function writeRuntimeConfig(cfg: Record<string, unknown>): void {
   fs.writeFileSync(runtimeConfigPath, JSON.stringify(cfg, null, 2));
-}
-
-/**
- * Ensure an OC agent exists for this user. Creates the agent in the
- * runtime config and workspace directory if needed. OC hot-reloads
- * config within 200ms.
- */
-export function ensureAgent(userId: string): void {
-  // OC normalizes agent IDs to lowercase — match that here
-  const agentId = userId.toLowerCase();
-  if (knownAgents.has(agentId)) return;
-
-  log.info(`Creating OC agent for user ${userId} (agentId=${agentId})`);
-
-  // Read current runtime config, add agent, write back
-  const cfg = JSON.parse(fs.readFileSync(runtimeConfigPath, "utf-8"));
-  const list: Array<{ id: string; workspace: string }> = cfg.agents?.list ?? [];
-  if (!list.some((a) => a.id === agentId)) {
-    list.push({ id: agentId, workspace: `~/.openclaw/workspace-${agentId}` });
-    cfg.agents = { ...cfg.agents, list };
-    writeRuntimeConfig(cfg);
-  }
-
-  // Create workspace + sessions directories
-  const home = process.env.HOME ?? "/tmp";
-  const workspaceDir = path.join(home, `.openclaw/workspace-${agentId}`);
-  const sessionsDir = path.join(home, `.openclaw/agents/${agentId}/sessions`);
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.mkdirSync(sessionsDir, { recursive: true });
-
-  knownAgents.add(agentId);
 }
 
 export async function startOpenClaw(): Promise<void> {
@@ -127,21 +84,7 @@ export async function startOpenClaw(): Promise<void> {
       ? ["openclaw", "gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"]
       : ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
 
-  // Discover agents from local dirs (populated by S3 restore or previous runs)
-  const home = process.env.HOME ?? "/tmp";
-  const agentsDir = path.join(home, ".openclaw/agents");
-  let agentIds: string[] = [];
-  try {
-    agentIds = fs.readdirSync(agentsDir).filter((n) =>
-      fs.statSync(path.join(agentsDir, n)).isDirectory()
-    );
-    for (const id of agentIds) knownAgents.add(id);
-    log.info(`Discovered ${agentIds.length} local agents`);
-  } catch {
-    log.info("No local agents found, starting fresh");
-  }
-
-  const runtimeConfig = buildRuntimeConfig(agentIds);
+  const runtimeConfig = buildRuntimeConfig();
   writeRuntimeConfig(runtimeConfig);
   log.debug({ runtimeConfigPath }, "Wrote runtime config");
 

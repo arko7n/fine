@@ -148,6 +148,11 @@ export async function provisionTask(): Promise<{ status: ProvisionStatus }> {
   return res.json();
 }
 
+export async function deprovisionTask(): Promise<{ status: ProvisionStatus }> {
+  const res = await authedFetch(`${base}/api/provision`, { method: "DELETE" });
+  return res.json();
+}
+
 export async function fetchMe(): Promise<MeResponse> {
   const res = await authedFetch(`${base}/api/me`);
   return res.json();

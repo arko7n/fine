@@ -5,6 +5,7 @@ dist
 
 # Generated OpenClaw runtime config
 .openclaw-runtime.json
+.local-user-id
 
 # FaskClaw is cloned during CI build, not committed here
 faskclaw/

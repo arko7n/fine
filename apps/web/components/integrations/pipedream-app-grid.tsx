@@ -14,7 +14,7 @@ type Props = {
 export function PipedreamAppGrid({ connections, onConnectionChange }: Props) {
   const [apps, setApps] = useState<PipedreamApp[]>([]);
   const [query, setQuery] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const loadApps = useCallback(async (q?: string) => {
     const results = await searchPipedreamApps(q, 20);
@@ -27,7 +27,7 @@ export function PipedreamAppGrid({ connections, onConnectionChange }: Props) {
 
   const handleSearchChange = (value: string) => {
     setQuery(value);
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       loadApps(value || undefined);
     }, 300);

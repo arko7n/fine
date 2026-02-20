@@ -10,7 +10,7 @@ import sessionsRouter from "./modules/sessions/sessions.router.js";
 import { provisionRouter, meRouter } from "./modules/provision/provision.router.js";
 import appConfig from "./config.js";
 import logger from "./lib/logger.js";
-import { ocToken, ensureAgent } from "./modules/openclaw/openclaw.service.js";
+import { ocToken } from "./modules/openclaw/openclaw.service.js";
 import { getEnabled } from "./integrations.config.js";
 import { getTaskEndpoint } from "./modules/provision/provision.service.js";
 
@@ -43,12 +43,9 @@ function userTaskProxy(req: express.Request, res: express.Response) {
   const userId = req.auth?.userId;
   if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
 
-  // Local backend: ensure agent exists, proxy to local OC gateway
+  // Local backend: proxy to local OC gateway (uses default "main" agent)
   if (appConfig.useLocalBackend) {
-    ensureAgent(userId);
-    proxyTo(req, res, "127.0.0.1", appConfig.fcPort, {
-      "x-openclaw-agent-id": userId.toLowerCase(),
-    });
+    proxyTo(req, res, "127.0.0.1", appConfig.fcPort);
     return;
   }
 
