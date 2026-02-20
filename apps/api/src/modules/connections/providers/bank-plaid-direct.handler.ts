@@ -5,7 +5,7 @@ import { createLinkToken, exchangePublicToken } from "../../integrations/provide
 import { bankAgentContext } from "./bank-context.js";
 import logger from "../../../lib/logger.js";
 
-const log = logger.child({ module: "bank-plaid-direct" });
+const log = logger.child({ src: "bank-plaid-direct.handler" });
 
 /** Direct Plaid SDK integration for bank connections. */
 export const bankPlaidDirectHandler: ProviderHandler = {

@@ -5,7 +5,7 @@ import { getPipedreamClient } from "../pipedream.service.js";
 import { bankAgentContext } from "./bank-context.js";
 import logger from "../../../lib/logger.js";
 
-const log = logger.child({ module: "bank-plaid-pipedream" });
+const log = logger.child({ src: "bank-plaid-pipedream.handler" });
 
 /** Pipedream Connect-wrapped Plaid for bank connections. */
 export const bankPlaidPipedreamHandler: ProviderHandler = {

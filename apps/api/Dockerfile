@@ -1,17 +1,18 @@
 FROM public.ecr.aws/docker/library/node:22-slim
 
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package*.json yarn.lock ./
+COPY apps/api/package.json apps/api/yarn.lock ./
 RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" && \
     yarn install
 
-COPY . .
+COPY apps/api/ .
 
 RUN yarn build
 
+ENV NODE_ENV=production
 EXPOSE 3001
 
 CMD ["node", "dist/index.js"]

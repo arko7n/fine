@@ -2,7 +2,7 @@ import { CountryCode, Products } from "plaid";
 import plaidClient from "../../../lib/plaid.js";
 import logger from "../../../lib/logger.js";
 
-const log = logger.child({ module: "plaid-provider" });
+const log = logger.child({ src: "plaid.provider" });
 
 export async function createLinkToken(userId: string) {
   const response = await plaidClient.linkTokenCreate({

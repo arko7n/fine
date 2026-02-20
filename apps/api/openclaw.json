@@ -1,19 +1,20 @@
 {
   "gateway": {
-    "mode": "local",
     "bind": "loopback",
-    "auth": {
-      "mode": "token"
-    },
     "http": {
       "endpoints": {
-        "chatCompletions": { "enabled": true }
+        "responses": { "enabled": true }
       }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "thinkingDefault": "low"
     }
   },
   "plugins": {
     "load": {
-      "paths": ["./openclaw-plugins/fine-tools"]
+      "paths": ["./openclaw-plugins/fine-tools", "./openclaw-plugins/fine-persistence"]
     },
     "entries": {
       "fine-tools": {
@@ -21,10 +22,18 @@
         "config": {
           "backendUrl": "http://localhost:3001"
         }
+      },
+      "fine-persistence": {
+        "enabled": true
       }
     }
   },
-  "tools": {
-    "alsoAllow": ["plaid_*"]
+  "browser": {
+    "enabled": true,
+    "defaultProfile": "fine",
+    "headless": true,
+    "profiles": {
+      "fine": { "cdpPort": 18800, "color": "#6366f1" }
+    }
   }
 }

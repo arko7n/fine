@@ -1,55 +1,53 @@
 import config from "./config";
+import type { ChatMessage } from "./types";
 
 const base = config.apiUrl;
 
-export type Thread = {
+// Chat
+
+export async function sendMessage(sessionId: string, message: string, userId: string) {
+  return fetch(`${base}/v1/responses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-OpenClaw-Session-Key": sessionId,
+    },
+    body: JSON.stringify({ model: "openclaw", stream: true, user: userId, input: message }),
+  });
+}
+
+// Sessions
+
+export type Session = {
   id: string;
-  body: {
-    userId: string;
-    title: string;
-    createdAt: string;
-    updatedAt: string;
-  };
-  last_message: string | null;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type ThreadEvent = {
+export async function fetchSessions(): Promise<Session[]> {
+  const res = await fetch(`${base}/api/sessions`);
+  return res.json();
+}
+
+export async function fetchSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+  const res = await fetch(`${base}/api/sessions/${sessionId}/messages`);
+  return res.json();
+}
+
+// Integrations
+
+export type Integration = {
   id: string;
-  body: {
-    threadId: string;
-    role: "user" | "assistant";
-    content: string;
-    createdAt: string;
-  };
+  label: string;
+  description: string;
+  icon: string;
+  provider: string;
 };
 
-export type ThreadWithEvents = Thread & { events: ThreadEvent[] };
-
-export async function createThread(title?: string): Promise<Thread> {
-  const res = await fetch(`${base}/api/threads`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
+export async function fetchIntegrations(): Promise<Integration[]> {
+  const res = await fetch(`${base}/api/integrations`);
   return res.json();
-}
-
-export async function listThreads(): Promise<Thread[]> {
-  const res = await fetch(`${base}/api/threads`);
-  return res.json();
-}
-
-export async function getThread(id: string): Promise<ThreadWithEvents> {
-  const res = await fetch(`${base}/api/threads/${id}`);
-  return res.json();
-}
-
-export async function sendMessage(threadId: string, message: string) {
-  return fetch(`${base}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ threadId, message }),
-  });
 }
 
 // Connections

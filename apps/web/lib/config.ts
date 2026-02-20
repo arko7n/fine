@@ -3,10 +3,10 @@ const environments = {
     apiUrl: "http://localhost:3001",
   },
   dev: {
-    apiUrl: "https://api.dev.fine.getfine.pro",
+    apiUrl: "https://api.dev.fine.fask.ai",
   },
   prod: {
-    apiUrl: "https://api.prod.fine.getfine.pro",
+    apiUrl: "https://api.prod.fine.fask.ai",
   },
 } as const;
 

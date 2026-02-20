@@ -1,18 +1,20 @@
 "use client";
 
 import { ChatArea } from "@/components/chat/chat-area";
-import { useThreads } from "@/hooks/use-threads";
+import { useSessions } from "@/hooks/use-sessions";
 
 export default function ChatPage() {
-  const { activeThreadId, messages, setMessages, loadThreads } = useThreads();
+  const { activeSessionId, messages, setMessages, userId } = useSessions();
+
+  if (!userId || !activeSessionId) return null;
 
   return (
     <ChatArea
-      key={activeThreadId}
-      threadId={activeThreadId}
+      key={activeSessionId}
+      sessionKey={activeSessionId}
+      userId={userId}
       messages={messages}
       setMessages={setMessages}
-      onFirstMessage={loadThreads}
     />
   );
 }

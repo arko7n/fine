@@ -1,0 +1,10 @@
+{
+  "id": "fine-persistence",
+  "name": "Fine Persistence",
+  "description": "Persists FaskClaw session transcripts and user memory to PostgreSQL",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

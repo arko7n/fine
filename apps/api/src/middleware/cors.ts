@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 export function cors(req: Request, res: Response, next: NextFunction) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-OpenClaw-Session-Key");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;

@@ -1,36 +1,102 @@
+import http from "node:http";
 import express from "express";
 import { cors } from "./middleware/cors.js";
 import { auth } from "./middleware/auth.js";
 import { requestLogger } from "./middleware/request-logger.js";
-import { isHealthy } from "./modules/openclaw/openclaw.service.js";
-import threadRouter from "./modules/threads/threads.router.js";
-import chatRouter from "./modules/chat/chat.router.js";
 import { connectionsRouter } from "./modules/connections/index.js";
 import toolsRouter from "./modules/tools/tools.router.js";
 import authRouter from "./modules/auth/auth.router.js";
+import sessionsRouter from "./modules/sessions/sessions.router.js";
+import appConfig from "./config.js";
+import logger from "./lib/logger.js";
+import pool from "./lib/db.js";
+import { ocToken, ensureAgent } from "./modules/openclaw/openclaw.service.js";
+import { getEnabled } from "./integrations.config.js";
+
+const log = logger.child({ src: "app" });
+
+/** Ensure user has an OC agent and a session row in PG. */
+async function ensureSessionAndAgent(req: express.Request, _res: express.Response, next: express.NextFunction) {
+  const sessionId = req.headers["x-openclaw-session-key"] as string | undefined;
+  const userId = req.auth?.userId;
+  if (sessionId && userId) {
+    ensureAgent(userId);
+    try {
+      await pool.query(
+        `INSERT INTO fc_sessions (id, body) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+        [sessionId, JSON.stringify({ userId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })]
+      );
+    } catch (err) {
+      log.error({ err }, "ensureSession failed");
+    }
+  }
+  next();
+}
+
+/** Inject agent ID header so OC routes to the user's agent. */
+function injectAgentHeader(req: express.Request, _res: express.Response, next: express.NextFunction) {
+  if (req.auth?.userId) {
+    req.headers["x-openclaw-agent-id"] = req.auth.userId;
+  }
+  next();
+}
+
+/** Raw reverse proxy to OpenClaw gateway. */
+function fcProxy(req: express.Request, res: express.Response) {
+  const proxy = http.request(
+    {
+      hostname: "127.0.0.1",
+      port: appConfig.fcPort,
+      path: req.url,
+      method: req.method,
+      headers: { ...req.headers, authorization: `Bearer ${ocToken()}` },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode!, proxyRes.headers);
+      proxyRes.pipe(res);
+    }
+  );
+  req.pipe(proxy);
+  proxy.on("error", (err) => {
+    log.error({ err }, "FC proxy error");
+    if (!res.headersSent) {
+      res.status(502).json({ error: "FC unavailable" });
+    }
+  });
+}
 
 export function createApp() {
   const app = express();
 
-  app.use(express.json());
+  // Raw proxy to OC — auth + agent routing + ensureSession, before json parsing
+  app.all("/v1/{*path}", cors, ...auth, ensureSessionAndAgent, injectAgentHeader, fcProxy);
+
+  app.use(express.json({ limit: "1mb" }));
   app.use(cors);
   app.use(requestLogger);
 
   // Pre-auth routes
+  app.get("/api/integrations", (_req, res) => {
+    res.json(
+      getEnabled().map(({ id, label, description, icon, provider }) => ({
+        id,
+        label,
+        description,
+        icon,
+        provider,
+      }))
+    );
+  });
+
   app.use("/api/internal/tools", toolsRouter);
 
   app.get("/health", (_req, res) => {
-    if (!isHealthy()) {
-      res.status(503).json({ status: "unhealthy" });
-      return;
-    }
     res.json({ status: "ok" });
   });
 
   app.use(auth);
 
-  app.use("/api/threads", threadRouter);
-  app.use("/api/chat", chatRouter);
+  app.use("/api/sessions", sessionsRouter);
   app.use("/api/connections", connectionsRouter);
   app.use("/api/auth", authRouter);
 

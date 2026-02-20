@@ -29,11 +29,11 @@ const plugin = {
         description: def.description,
         parameters: def.parameters,
 
-        async execute(_toolCallId: string, params: Record<string, unknown>) {
+        async execute(_toolCallId: string, params: Record<string, unknown>, ctx?: { user?: string }) {
           const res = await fetch(`${backendUrl}/api/internal/tools/invoke`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ app: def.app, action: def.action, params }),
+            body: JSON.stringify({ app: def.app, action: def.action, params, userId: ctx?.user }),
           });
 
           const data = await res.json();

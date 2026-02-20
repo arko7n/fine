@@ -16,7 +16,7 @@ export function MobileHeader() {
       <Button variant="ghost" size="icon-sm" onClick={toggle}>
         <Menu className="size-5" />
       </Button>
-      <h1 className="text-lg font-semibold tracking-tight">Fine</h1>
+      <h1 className="text-lg font-semibold tracking-tight">Myst</h1>
     </header>
   );
 }

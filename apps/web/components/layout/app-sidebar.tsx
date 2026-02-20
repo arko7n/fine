@@ -3,24 +3,24 @@
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { SidebarNav } from "./sidebar-nav";
-import { SidebarThreads } from "./sidebar-threads";
+import { SidebarSessions } from "./sidebar-sessions";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import type { Thread } from "@/lib/api";
+import type { Session } from "@/hooks/use-sessions";
 
 type Props = {
-  threads: Thread[];
-  activeThreadId: string | null;
-  onSelectThread: (id: string) => void;
+  sessions: Session[];
+  activeSessionId: string | null;
+  onSelectSession: (id: string) => void;
   onNewChat: () => void;
 };
 
 function SidebarContent({
-  threads,
-  activeThreadId,
-  onSelectThread,
+  sessions,
+  activeSessionId,
+  onSelectSession,
   onNewChat,
   onNavigate,
 }: Props & { onNavigate?: () => void }) {
@@ -30,16 +30,16 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-4">
-        <h1 className="text-lg font-semibold tracking-tight">Fine</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Myst</h1>
       </div>
       <SidebarNav onNavigate={onNavigate} />
       {showThreads && (
         <>
           <Separator className="my-2" />
-          <SidebarThreads
-            threads={threads}
-            activeThreadId={activeThreadId}
-            onSelectThread={onSelectThread}
+          <SidebarSessions
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            onSelectSession={onSelectSession}
             onNewChat={onNewChat}
             onNavigate={onNavigate}
           />

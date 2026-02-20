@@ -2,7 +2,7 @@ import { createClerkClient } from "@clerk/express";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
 
-const log = logger.child({ module: "auth" });
+const log = logger.child({ src: "auth.service" });
 
 export type User = {
   id: string;
@@ -17,7 +17,7 @@ const clerk = config.clerkSecretKey
 
 export async function resolveUser(userId: string): Promise<User> {
   if (!clerk || config.bypassAuth) {
-    log.debug({ userId }, "resolveUser (bypass mode)");
+    log.trace({ userId }, "resolveUser (bypass mode)");
     return {
       id: userId,
       name: "Demo User",

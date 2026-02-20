@@ -2,3 +2,9 @@ node_modules
 dist
 .env*
 .next
+
+# Generated OpenClaw runtime config
+.openclaw-runtime.json
+
+# FaskClaw is cloned during CI build, not committed here
+faskclaw/

@@ -1,112 +1,173 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
+import pool from "../../lib/db.js";
+import { getEnabledToolPatterns } from "../../integrations.config.js";
 
-const log = logger.child({ module: "openclaw" });
+const log = logger.child({ src: "openclaw" });
 
-const OC_PORT = config.openclawPort;
-const OC_TOKEN = config.openclawToken;
+const OC_PORT = config.fcPort;
+const OC_TOKEN = "fine-internal";
 
 let child: ChildProcess | null = null;
 let reusedExisting = false;
 
-async function isPortHealthy(port: number): Promise<boolean> {
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const runtimeConfigPath = path.join(projectRoot, ".openclaw-runtime.json");
+const knownAgents = new Set<string>();
+
+async function isHealthy(): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/health`);
+    const res = await fetch(`http://127.0.0.1:${OC_PORT}/health`);
     return res.ok;
   } catch {
     return false;
   }
 }
 
-async function waitForPort(port: number, timeoutMs = 120_000): Promise<void> {
+async function waitForHealth(timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (await isPortHealthy(port)) return;
+    if (child && child.exitCode !== null) {
+      throw new Error(`OpenClaw exited with code ${child.exitCode}`);
+    }
+    if (await isHealthy()) return;
     await new Promise((r) => setTimeout(r, 1000));
   }
-  throw new Error(`OpenClaw gateway not reachable on port ${port} after ${timeoutMs}ms`);
+  throw new Error(`OpenClaw not healthy after ${timeoutMs}ms`);
 }
 
-function resolveBin(): { bin: string; args: string[] } {
-  const baseArgs = ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
-  if (process.env.OPENCLAW_BIN) return { bin: process.env.OPENCLAW_BIN, args: baseArgs };
+function resolveBin(): string {
   try {
-    const resolved = new URL("../../../node_modules/.bin/openclaw", import.meta.url).pathname;
-    return { bin: resolved, args: baseArgs };
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    return path.resolve(dir, "../../../node_modules/.bin/openclaw");
   } catch {
-    return { bin: "npx", args: ["openclaw", ...baseArgs] };
+    return "npx";
   }
+}
+
+function buildRuntimeConfig(agentIds: string[]): Record<string, unknown> {
+  const baseConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, "openclaw.json"), "utf-8"));
+
+  // OC resolves relative plugin paths from its own workspace, not CWD — make them absolute
+  if (baseConfig.plugins?.load?.paths) {
+    baseConfig.plugins.load.paths = (baseConfig.plugins.load.paths as string[]).map(
+      (p: string) => path.resolve(projectRoot, p)
+    );
+  }
+
+  const toolPatterns = getEnabledToolPatterns();
+  if (toolPatterns.length > 0) {
+    baseConfig.tools = { ...baseConfig.tools, alsoAllow: toolPatterns };
+  } else {
+    delete baseConfig.tools?.alsoAllow;
+  }
+
+  // Add per-user agents
+  if (agentIds.length > 0) {
+    baseConfig.agents = {
+      ...baseConfig.agents,
+      list: agentIds.map((id) => ({
+        id,
+        workspace: `~/.openclaw/workspace-${id}`,
+      })),
+    };
+  }
+
+  return baseConfig;
+}
+
+function writeRuntimeConfig(cfg: Record<string, unknown>): void {
+  fs.writeFileSync(runtimeConfigPath, JSON.stringify(cfg, null, 2));
+}
+
+/**
+ * Ensure an OC agent exists for this user. Creates the agent in the
+ * runtime config and workspace directory if needed. OC hot-reloads
+ * config within 200ms.
+ */
+export function ensureAgent(userId: string): void {
+  if (knownAgents.has(userId)) return;
+
+  log.info(`Creating OC agent for user ${userId}`);
+
+  // Read current runtime config, add agent, write back
+  const cfg = JSON.parse(fs.readFileSync(runtimeConfigPath, "utf-8"));
+  const list: Array<{ id: string; workspace: string }> = cfg.agents?.list ?? [];
+  if (!list.some((a) => a.id === userId)) {
+    list.push({ id: userId, workspace: `~/.openclaw/workspace-${userId}` });
+    cfg.agents = { ...cfg.agents, list };
+    writeRuntimeConfig(cfg);
+  }
+
+  // Create workspace + sessions directories
+  const home = process.env.HOME ?? "/tmp";
+  const workspaceDir = path.join(home, `.openclaw/workspace-${userId}`);
+  const sessionsDir = path.join(home, `.openclaw/agents/${userId}/sessions`);
+  fs.mkdirSync(workspaceDir, { recursive: true });
+  fs.mkdirSync(sessionsDir, { recursive: true });
+
+  knownAgents.add(userId);
 }
 
 export async function startOpenClaw(): Promise<void> {
-  if (await isPortHealthy(OC_PORT)) {
-    log.info(`Gateway already running on port ${OC_PORT}, reusing it`);
+  if (await isHealthy()) {
+    log.debug(`Gateway already running on :${OC_PORT}, reusing`);
     reusedExisting = true;
     return;
   }
 
-  const { bin, args } = resolveBin();
+  const bin = resolveBin();
+  const args =
+    bin === "npx"
+      ? ["openclaw", "gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"]
+      : ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
 
-  const projectRoot = new URL("../../..", import.meta.url).pathname;
-  log.info({ bin, args, cwd: projectRoot }, "spawning gateway");
+  // Pre-populate agents from PG
+  let agentIds: string[] = [];
+  try {
+    const { rows } = await pool.query("SELECT id FROM fc_users");
+    agentIds = rows.map((r) => r.id as string);
+    for (const id of agentIds) knownAgents.add(id);
+    log.info(`Pre-populated ${agentIds.length} agents from PG`);
+  } catch (err) {
+    log.warn({ err }, "Could not pre-populate agents from PG");
+  }
+
+  const runtimeConfig = buildRuntimeConfig(agentIds);
+  writeRuntimeConfig(runtimeConfig);
+  log.debug({ runtimeConfigPath }, "Wrote runtime config");
 
   child = spawn(bin, args, {
     stdio: ["ignore", "pipe", "pipe"],
     cwd: projectRoot,
     env: {
       ...process.env,
+      OPENCLAW_CONFIG_PATH: runtimeConfigPath,
       OPENCLAW_GATEWAY_TOKEN: OC_TOKEN,
-      OPENCLAW_GATEWAY_PORT: String(OC_PORT),
-      OPENCLAW_CONFIG_PATH: `${projectRoot}openclaw.json`,
+      OPENCLAW_SKIP_CHANNELS: "1",
     },
   });
 
-  child.on("error", (err) => {
-    log.error({ err }, "spawn error");
-  });
-
-  child.stdout?.on("data", (chunk: Buffer) => {
-    log.debug(chunk.toString().trimEnd());
-  });
-
-  child.stderr?.on("data", (chunk: Buffer) => {
-    log.debug(chunk.toString().trimEnd());
-  });
-
+  child.on("error", (err) => log.error({ err }, "OpenClaw spawn error"));
+  child.stdout?.on("data", (d: Buffer) => log.trace(d.toString().trimEnd()));
+  child.stderr?.on("data", (d: Buffer) => log.trace(d.toString().trimEnd()));
   child.on("exit", (code) => {
-    if (code !== 0 && code !== null) {
-      log.error(`exited with code ${code}`);
-    } else {
-      log.info(`exited with code ${code}`);
-    }
+    log.warn(`OpenClaw exited (code ${code})`);
     child = null;
   });
 
-  await waitForPort(OC_PORT);
+  await waitForHealth();
 }
 
-export function isHealthy(): boolean {
-  return reusedExisting || (child !== null && child.exitCode === null);
-}
-
-export function stopOpenClaw() {
+export function stopOpenClaw(): void {
   if (reusedExisting) return;
   child?.kill("SIGTERM");
-  const { bin } = resolveBin();
-  const stopBin = bin === "npx" ? "npx" : bin;
-  const stopArgs = bin === "npx" ? ["openclaw", "gateway", "stop"] : ["gateway", "stop"];
-  try {
-    spawnSync(stopBin, stopArgs, { stdio: "ignore", timeout: 5000 });
-  } catch {
-    // best-effort
-  }
 }
 
-export function ocBaseUrl() {
-  return `http://127.0.0.1:${OC_PORT}`;
-}
-
-export function ocToken() {
+export function ocToken(): string {
   return OC_TOKEN;
 }

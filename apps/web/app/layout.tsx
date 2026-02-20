@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fine",
+  title: "Myst",
   description: "Autonomous finance agent",
 };
 

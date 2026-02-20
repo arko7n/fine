@@ -1,17 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PROVIDERS } from "@/lib/constants";
-import { listConnections, type Connection } from "@/lib/api";
+import { INTEGRATION_ICONS } from "@/lib/constants";
+import {
+  fetchIntegrations,
+  listConnections,
+  type Connection,
+  type Integration,
+} from "@/lib/api";
 import { IntegrationCard } from "./integration-card";
 import { ConnectButton } from "./connect-button";
 
 export function IntegrationGrid() {
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
 
   const refresh = useCallback(async () => {
-    const data = await listConnections();
-    setConnections(data);
+    const [intData, connData] = await Promise.all([
+      fetchIntegrations(),
+      listConnections(),
+    ]);
+    setIntegrations(intData);
+    setConnections(connData);
   }, []);
 
   useEffect(() => {
@@ -19,19 +29,23 @@ export function IntegrationGrid() {
   }, [refresh]);
 
   const connectedProviders = new Set(
-    connections.filter((c) => c.body.status === "active").map((c) => c.body.provider)
+    connections
+      .filter((c) => c.body.status === "active")
+      .map((c) => c.body.provider)
   );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {PROVIDERS.map((p) => (
+      {integrations.map((p) => (
         <IntegrationCard
           key={p.id}
-          name={p.name}
+          name={p.label}
           description={p.description}
-          icon={p.icon}
-          connected={connectedProviders.has(p.id)}
-          connectButton={<ConnectButton provider={p.id} onSuccess={refresh} />}
+          icon={INTEGRATION_ICONS[p.icon]}
+          connected={connectedProviders.has(p.provider)}
+          connectButton={
+            <ConnectButton provider={p.provider} onSuccess={refresh} />
+          }
         />
       ))}
     </div>

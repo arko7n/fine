@@ -9,7 +9,7 @@ import {
 import { getProvider, hasProvider } from "./provider-registry.js";
 import { pipedreamHandler } from "./providers/pipedream.handler.js";
 
-const log = logger.child({ module: "connections" });
+const log = logger.child({ src: "connections.router" });
 const router = Router();
 
 /** GET /api/connections — list all connections for the authenticated user */

@@ -4,7 +4,7 @@ import { insertConnection, removeConnection, getConnection } from "../connection
 import { getPipedreamClient } from "../pipedream.service.js";
 import logger from "../../../lib/logger.js";
 
-const log = logger.child({ module: "pipedream-handler" });
+const log = logger.child({ src: "pipedream.handler" });
 
 /** Default Pipedream handler for providers that don't have custom logic. */
 export const pipedreamHandler: ProviderHandler = {

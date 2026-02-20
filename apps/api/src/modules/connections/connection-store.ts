@@ -1,7 +1,7 @@
 import pool from "../../lib/db.js";
 import logger from "../../lib/logger.js";
 
-const log = logger.child({ module: "connection-store" });
+const log = logger.child({ src: "connection-store" });
 
 export type ConnectionBody = {
   userId: string;

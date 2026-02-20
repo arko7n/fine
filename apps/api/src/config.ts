@@ -1,9 +1,10 @@
+import constants from "../constants.json" with { type: "json" };
+
 type Env = "local" | "dev" | "prod";
 const env = (process.env.APP_ENV ?? "dev") as Env;
 
 const shared = {
-  openclawPort: 18789,
-  openclawToken: "fine-internal",
+  fcPort: constants.ports.openclaw,
   plaidEnv: "sandbox" as const,
   bankProvider: "plaid-direct" as "plaid-direct" | "plaid-pipedream",
 };
@@ -11,36 +12,24 @@ const shared = {
 const environments = {
   local: {
     ...shared,
-    port: 3001,
-    logLevel: "debug",
-    pgUser: "postgres",
-    pgHost: "localhost",
-    pgDatabase: "fine",
-    pgPort: 5432,
+    port: constants.ports.api,
+    logLevel: "trace",
     bypassAuth: true,
     pipedreamPublicKey: "",
     pipedreamProjectId: "",
   },
   dev: {
     ...shared,
-    port: 3001,
-    logLevel: "debug",
-    pgUser: "postgres",
-    pgHost: "anthrive-db-1.cluster-ci1lbpace9fg.us-west-2.rds.amazonaws.com",
-    pgDatabase: "anthrive",
-    pgPort: 5432,
+    port: constants.ports.api,
+    logLevel: "info",
     bypassAuth: true,
     pipedreamPublicKey: "",
     pipedreamProjectId: "",
   },
   prod: {
     ...shared,
-    port: 3001,
-    logLevel: "warn",
-    pgUser: "postgres",
-    pgHost: "",
-    pgDatabase: "",
-    pgPort: 5432,
+    port: constants.ports.api,
+    logLevel: "info",
     bypassAuth: false,
     pipedreamPublicKey: "",
     pipedreamProjectId: "",
@@ -51,8 +40,14 @@ const config = {
   env,
   ...environments[env],
 
-  // Secrets — always from env vars
+  // PG — non-secret values from constants.json, password from env
+  pgUser: constants.pg.user,
+  pgHost: constants.pg.host,
+  pgDatabase: constants.pg.database,
+  pgPort: constants.pg.port,
   pgPassword: process.env.PGPASSWORD ?? "",
+
+  // Secrets — always from env vars
   plaidClientId: process.env.PLAID_CLIENT_ID ?? "",
   plaidSecret: process.env.PLAID_SECRET ?? "",
   clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY ?? "",

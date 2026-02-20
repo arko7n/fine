@@ -1,0 +1,9 @@
+{
+  "pg": {
+    "user": "postgres",
+    "host": "anthrive-db-1.cluster-ci1lbpace9fg.us-west-2.rds.amazonaws.com",
+    "database": "anthrive",
+    "port": 5432
+  },
+  "ports": { "api": 3001, "openclaw": 18789 }
+}

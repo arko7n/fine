@@ -1,19 +1,22 @@
 import "./env.js";
 
+import http from "node:http";
 import logger from "./lib/logger.js";
 import appConfig from "./config.js";
 import { createApp } from "./app.js";
 import { startOpenClaw, stopOpenClaw } from "./modules/openclaw/openclaw.service.js";
 
-const log = logger.child({ module: "bootstrap" });
+const log = logger.child({ src: "index" });
 
 async function main() {
+  log.info("Starting OpenClaw gateway...");
   await startOpenClaw();
-  log.info("OpenClaw gateway ready");
+  log.info("OpenClaw gateway ready.");
 
   const app = createApp();
+  const server = http.createServer(app);
 
-  app.listen(appConfig.port, () => {
+  server.listen(appConfig.port, () => {
     log.info(`Fine backend listening on http://localhost:${appConfig.port}`);
   });
 }

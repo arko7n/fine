@@ -1,8 +1,8 @@
 import logger from "../../lib/logger.js";
 
-const log = logger.child({ module: "tool-registry" });
+const log = logger.child({ src: "tool-registry" });
 
-export type ToolHandler = (params: Record<string, unknown>) => Promise<unknown>;
+export type ToolHandler = (params: Record<string, unknown>, userId?: string) => Promise<unknown>;
 
 const registry = new Map<string, Map<string, ToolHandler>>();
 

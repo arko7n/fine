@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
-import { ThreadsProvider } from "@/hooks/use-threads";
+import { SessionsProvider } from "@/hooks/use-sessions";
 import { AppShell } from "@/components/layout/app-shell";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -14,9 +14,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </SignedOut>
       <SignedIn>
         <SidebarProvider>
-          <ThreadsProvider>
+          <SessionsProvider>
             <AppShell>{children}</AppShell>
-          </ThreadsProvider>
+          </SessionsProvider>
         </SidebarProvider>
       </SignedIn>
     </>

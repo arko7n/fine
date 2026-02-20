@@ -15,6 +15,7 @@ export const requestLogger = (pinoHttp as unknown as typeof pinoHttp.default)({
     if (error || res.statusCode >= 500) return "error";
     if (res.statusCode >= 400) return "warn";
     if (_req.url === "/health") return "trace";
+    if (_req.url?.startsWith("/api/internal/")) return "debug";
     return "info";
   },
   serializers: {

@@ -12,7 +12,9 @@ http:
     grace_period: 180s
 
 image:
-  build: apps/api/Dockerfile
+  build:
+    dockerfile: apps/api/Dockerfile
+    context: .
   port: 3001
 
 cpu: 1024

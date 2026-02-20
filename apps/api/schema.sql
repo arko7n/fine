@@ -1,32 +1,24 @@
--- Persistent conversations for Fine
--- Run against your local Postgres instance
+-- Fine database schema
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE TABLE IF NOT EXISTS threads (
-  id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Sessions and Users
+CREATE TABLE fc_sessions (
+  id   TEXT PRIMARY KEY,
   body JSONB NOT NULL DEFAULT '{}'
 );
-
-CREATE TABLE IF NOT EXISTS thread_events (
-  id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE fc_users (
+  id   TEXT PRIMARY KEY,
   body JSONB NOT NULL DEFAULT '{}'
 );
+CREATE INDEX idx_fc_sessions_user ON fc_sessions ((body ->> 'userId'));
+CREATE INDEX idx_fc_sessions_updated ON fc_sessions ((body ->> 'updatedAt') DESC);
 
--- Index for listing threads by user
-CREATE INDEX IF NOT EXISTS idx_threads_user_id
-  ON threads ((body ->> 'userId'));
-
--- Index for listing events by thread
-CREATE INDEX IF NOT EXISTS idx_thread_events_thread_id
-  ON thread_events ((body ->> 'threadId'));
-
--- Unified connections (replaces per-provider tables like plaid_items)
+-- Connections (linked accounts)
 CREATE TABLE IF NOT EXISTS connections (
   id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   body JSONB NOT NULL DEFAULT '{}'
 );
-
 CREATE INDEX IF NOT EXISTS idx_connections_user
   ON connections ((body ->> 'userId'));
 CREATE INDEX IF NOT EXISTS idx_connections_user_provider
