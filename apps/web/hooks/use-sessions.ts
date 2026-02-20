@@ -8,8 +8,9 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { useAuth } from "@clerk/nextjs";
 import type { ChatMessage } from "@/lib/types";
-import { getMe, fetchSessions, fetchSessionMessages, type Session } from "@/lib/api";
+import { fetchSessions, fetchSessionMessages, type Session } from "@/lib/api";
 import React from "react";
 
 export type { Session };
@@ -27,14 +28,10 @@ type SessionsContextType = {
 const SessionsContext = createContext<SessionsContextType | null>(null);
 
 export function SessionsProvider({ children }: { children: ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { userId } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  useEffect(() => {
-    getMe().then((u) => setUserId(u.id));
-  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -70,7 +67,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   return React.createElement(
     SessionsContext.Provider,
-    { value: { userId, sessions, activeSessionId, messages, setMessages, selectSession, newChat } },
+    { value: { userId: userId ?? null, sessions, activeSessionId, messages, setMessages, selectSession, newChat } },
     children
   );
 }

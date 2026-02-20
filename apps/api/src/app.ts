@@ -5,7 +5,6 @@ import { auth } from "./middleware/auth.js";
 import { requestLogger } from "./middleware/request-logger.js";
 import { connectionsRouter } from "./modules/connections/index.js";
 import toolsRouter from "./modules/tools/tools.router.js";
-import authRouter from "./modules/auth/auth.router.js";
 import sessionsRouter from "./modules/sessions/sessions.router.js";
 import appConfig from "./config.js";
 import logger from "./lib/logger.js";
@@ -85,7 +84,6 @@ export function createApp() {
 
   app.use("/api/sessions", sessionsRouter);
   app.use("/api/connections", connectionsRouter);
-  app.use("/api/auth", authRouter);
 
   return app;
 }
