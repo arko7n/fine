@@ -30,11 +30,29 @@ registerToolHandler("pipedream", "describe_action", async (params) => {
 
 registerToolHandler("pipedream", "run_action", async (params, userId) => {
   if (!userId) throw new Error("userId is required");
-  return runAction(
-    params.action_key as string,
-    userId,
-    (params.configured_props as Record<string, unknown>) ?? {},
+
+  const actionKey = params.action_key as string;
+  const configuredProps = (params.configured_props as Record<string, unknown>) ?? {};
+
+  // Inject authProvisionId for the app's connected account
+  const connections = await getConnections(userId);
+  const match = connections.find(
+    (c) =>
+      c.body.credentials.pipedreamAccountId &&
+      actionKey.startsWith(c.body.provider + "-"),
   );
+  if (!match) {
+    throw new Error(
+      `No connected account found for action "${actionKey}". Connect the app first.`,
+    );
+  }
+
+  const appSlug = match.body.provider;
+  configuredProps[appSlug] = {
+    authProvisionId: match.body.credentials.pipedreamAccountId as string,
+  };
+
+  return runAction(actionKey, userId, configuredProps);
 });
 
 registerToolHandler("pipedream", "api_proxy", async (params, userId) => {

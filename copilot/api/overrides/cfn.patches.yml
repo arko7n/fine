@@ -1,7 +1,8 @@
-# Narrow the blanket "Deny iam:*" to exclude iam:PassRole so the task can
-# call ecs:RunTask (which requires passing execution + task roles).
-- op: remove
-  path: /Resources/TaskRole/Properties/Policies/0/PolicyDocument/Statement/0/Action
+# Allow iam:PassRole to ecs-tasks.amazonaws.com through Copilot's DenyIAM policy.
+# The condition exempts PassRole-to-ECS from the blanket iam:* deny while still
+# blocking all other IAM actions (CreateRole, AttachPolicy, etc.).
 - op: add
-  path: /Resources/TaskRole/Properties/Policies/0/PolicyDocument/Statement/0/NotAction
-  value: iam:PassRole
+  path: /Resources/TaskRole/Properties/Policies/0/PolicyDocument/Statement/0/Condition
+  value:
+    StringNotEqualsIfExists:
+      iam:PassedToService: ecs-tasks.amazonaws.com
