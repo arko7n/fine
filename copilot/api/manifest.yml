@@ -33,3 +33,5 @@ secrets:
   PLAID_SECRET: /copilot/applications/fine/plaid-secret
   CLERK_PUBLISHABLE_KEY: /copilot/applications/fine/clerk-publishable-key
   CLERK_SECRET_KEY: /copilot/applications/fine/clerk-secret-key
+  PIPEDREAM_CLIENT_ID: /copilot/applications/fine/pipedream-client-id
+  PIPEDREAM_CLIENT_SECRET: /copilot/applications/fine/pipedream-client-secret

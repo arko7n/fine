@@ -17,6 +17,7 @@ Resources:
             Effect: Allow
             Action:
               - ecs:DescribeTasks
+              - ecs:DescribeServices
               - ecs:RunTask
               - ecs:StopTask
             Resource: "*"

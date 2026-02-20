@@ -16,8 +16,8 @@ const environments = {
     logLevel: "trace",
     bypassAuth: false,
     useLocalBackend: true,
-    pipedreamPublicKey: "",
-    pipedreamProjectId: "",
+    pipedreamProjectId: "proj_ddsPejA",
+    pipedreamProjectEnvironment: "development",
   },
   dev: {
     ...shared,
@@ -25,8 +25,8 @@ const environments = {
     logLevel: "info",
     bypassAuth: false,
     useLocalBackend: false,
-    pipedreamPublicKey: "",
-    pipedreamProjectId: "",
+    pipedreamProjectId: "proj_ddsPejA",
+    pipedreamProjectEnvironment: "development",
   },
   prod: {
     ...shared,
@@ -34,8 +34,8 @@ const environments = {
     logLevel: "info",
     bypassAuth: false,
     useLocalBackend: false,
-    pipedreamPublicKey: "",
-    pipedreamProjectId: "",
+    pipedreamProjectId: "proj_ddsPejA",
+    pipedreamProjectEnvironment: "production",
   },
 } as const;
 
@@ -55,7 +55,8 @@ const config = {
   plaidSecret: process.env.PLAID_SECRET ?? "",
   clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY ?? "",
   clerkSecretKey: process.env.CLERK_SECRET_KEY ?? "",
-  pipedreamSecretKey: process.env.PIPEDREAM_SECRET_KEY ?? "",
+  pipedreamClientId: process.env.PIPEDREAM_CLIENT_ID ?? "",
+  pipedreamClientSecret: process.env.PIPEDREAM_CLIENT_SECRET ?? "",
 };
 
 export default config;

@@ -5,15 +5,16 @@ let client: PipedreamClient | null = null;
 
 export function getPipedreamClient(): PipedreamClient {
   if (!client) {
-    if (!config.pipedreamSecretKey || !config.pipedreamProjectId) {
+    if (!config.pipedreamClientId || !config.pipedreamClientSecret) {
       throw new Error(
-        "Pipedream is not configured. Set PIPEDREAM_SECRET_KEY and PIPEDREAM_PROJECT_ID."
+        "Pipedream is not configured. Set PIPEDREAM_CLIENT_ID and PIPEDREAM_CLIENT_SECRET."
       );
     }
     client = new PipedreamClient({
-      clientId: config.pipedreamPublicKey,
-      clientSecret: config.pipedreamSecretKey,
+      clientId: config.pipedreamClientId,
+      clientSecret: config.pipedreamClientSecret,
       projectId: config.pipedreamProjectId,
+      projectEnvironment: config.pipedreamProjectEnvironment,
     });
   }
   return client;

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ECSClient, RunTaskCommand, DescribeTasksCommand, StopTaskCommand } from "@aws-sdk/client-ecs";
+import { ECSClient, RunTaskCommand, DescribeTasksCommand, DescribeServicesCommand, StopTaskCommand } from "@aws-sdk/client-ecs";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
 import { getUser, upsertUser, updateUserBody, type UserStatus } from "./user-store.js";
@@ -65,34 +65,44 @@ export async function discoverEcsConfig(): Promise<void> {
 
   const taskMeta = await fetch(`${metadataUri}/task`).then((r) => r.json());
   const cluster: string = taskMeta.Cluster;
-  const instanceId: string = taskMeta.TaskARN;
+  const taskArn: string = taskMeta.TaskARN;
   const containerName: string = taskMeta.Containers?.[0]?.Name;
 
+  // Describe own task to get task definition and service group
   const described = await ecs.send(
-    new DescribeTasksCommand({ cluster, tasks: [instanceId] }),
+    new DescribeTasksCommand({ cluster, tasks: [taskArn] }),
   );
-
   const task = described.tasks?.[0];
-  if (!task) throw new Error(`Failed to describe own task ${instanceId}`);
+  if (!task) throw new Error(`Failed to describe own task ${taskArn}`);
 
   const taskDefinition = task.taskDefinitionArn!;
 
-  const eni = task.attachments?.find((a) => a.type === "ElasticNetworkInterface");
-  if (!eni) throw new Error("Own task has no ENI attachment");
+  // Extract service name from task group ("service:<name>")
+  const group = task.group;
+  if (!group?.startsWith("service:")) {
+    throw new Error(`Task group "${group}" is not a service — cannot discover network config`);
+  }
+  const serviceName = group.substring("service:".length);
 
-  const subnets = eni.details
-    ?.filter((d) => d.name === "subnetId")
-    .map((d) => d.value!) ?? [];
-  const securityGroups = eni.details
-    ?.filter((d) => d.name === "securityGroupId")
-    .map((d) => d.value!) ?? [];
+  // Get subnets and security groups from the service's network configuration
+  const serviceDesc = await ecs.send(
+    new DescribeServicesCommand({ cluster, services: [serviceName] }),
+  );
+  const service = serviceDesc.services?.[0];
+  if (!service) throw new Error(`Failed to describe service ${serviceName}`);
+
+  const netConfig = service.networkConfiguration?.awsvpcConfiguration;
+  if (!netConfig) throw new Error(`Service ${serviceName} has no awsvpc configuration`);
+
+  const subnets = netConfig.subnets ?? [];
+  const securityGroups = netConfig.securityGroups ?? [];
 
   if (subnets.length === 0 || securityGroups.length === 0) {
-    throw new Error("Failed to extract subnets/securityGroups from own task ENI");
+    throw new Error("Service network config has empty subnets or securityGroups");
   }
 
   ecsConfig = { cluster, taskDefinition, subnets, securityGroups, containerName };
-  log.info({ ecsConfig }, "Discovered ECS config from task metadata");
+  log.info({ ecsConfig }, "Discovered ECS config from service network configuration");
 }
 
 function requireEcsConfig(): EcsConfig {
