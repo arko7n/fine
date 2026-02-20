@@ -9,27 +9,14 @@ import authRouter from "./modules/auth/auth.router.js";
 import sessionsRouter from "./modules/sessions/sessions.router.js";
 import appConfig from "./config.js";
 import logger from "./lib/logger.js";
-import pool from "./lib/db.js";
 import { ocToken, ensureAgent } from "./modules/openclaw/openclaw.service.js";
 import { getEnabled } from "./integrations.config.js";
 
 const log = logger.child({ src: "app" });
 
-/** Ensure user has an OC agent and a session row in PG. */
-async function ensureSessionAndAgent(req: express.Request, _res: express.Response, next: express.NextFunction) {
-  const sessionId = req.headers["x-openclaw-session-key"] as string | undefined;
-  const userId = req.auth?.userId;
-  if (sessionId && userId) {
-    ensureAgent(userId);
-    try {
-      await pool.query(
-        `INSERT INTO fc_sessions (id, body) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-        [sessionId, JSON.stringify({ userId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })]
-      );
-    } catch (err) {
-      log.error({ err }, "ensureSession failed");
-    }
-  }
+/** Ensure user has an OC agent registered in the runtime config. */
+function ensureSessionAndAgent(req: express.Request, _res: express.Response, next: express.NextFunction) {
+  if (req.auth?.userId) ensureAgent(req.auth.userId);
   next();
 }
 

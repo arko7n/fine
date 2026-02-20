@@ -1,10 +1,13 @@
 import { Router } from "express";
-import pool from "../../lib/db.js";
+import fs from "node:fs";
+import path from "node:path";
 import config from "../../config.js";
 
 const router = Router();
+const HOME = process.env.HOME ?? "/tmp";
 
 type Message = { role: "user" | "assistant"; content: string };
+type SessionEntry = { sessionId: string; updatedAt?: string };
 
 function parseTranscript(transcript: string): Message[] {
   const messages: Message[] = [];
@@ -40,38 +43,62 @@ function titleFromMessages(messages: Message[]): string {
   return last.content.length > 60 ? last.content.slice(0, 60) + "..." : last.content;
 }
 
-router.get("/", async (req, res) => {
-  const q = config.bypassAuth
-    ? "SELECT id, body FROM fc_sessions ORDER BY body->>'updatedAt' DESC LIMIT 50"
-    : "SELECT id, body FROM fc_sessions WHERE body->>'userId' = $1 ORDER BY body->>'updatedAt' DESC LIMIT 50";
+function sessionsDir(agentId: string): string {
+  return path.join(HOME, `.openclaw/agents/${agentId}/sessions`);
+}
 
-  const { rows } = await pool.query(q, config.bypassAuth ? [] : [req.auth.userId]);
+function readIndex(agentId: string): Record<string, SessionEntry> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(sessionsDir(agentId), "sessions.json"), "utf-8"));
+  } catch {
+    return {};
+  }
+}
 
-  res.json(
-    rows.map((r) => {
-      const body = r.body as Record<string, unknown>;
-      const transcript = body.transcript as string | undefined;
+function readTranscript(agentId: string, ocSessionId: string): string | null {
+  try {
+    return fs.readFileSync(path.join(sessionsDir(agentId), `${ocSessionId}.jsonl`), "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+function allAgentIds(): string[] {
+  try {
+    const dir = path.join(HOME, ".openclaw/agents");
+    return fs.readdirSync(dir).filter((n) => fs.statSync(path.join(dir, n)).isDirectory());
+  } catch {
+    return [];
+  }
+}
+
+router.get("/", (req, res) => {
+  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId] : [];
+  const sessions: Array<{ id: string; title: string; updatedAt?: string }> = [];
+
+  for (const agentId of agents) {
+    for (const [key, entry] of Object.entries(readIndex(agentId))) {
+      const transcript = readTranscript(agentId, entry.sessionId);
       const msgs = transcript ? parseTranscript(transcript) : [];
-      return {
-        id: r.id,
-        title: titleFromMessages(msgs),
-        createdAt: body.createdAt,
-        updatedAt: body.updatedAt,
-      };
-    })
-  );
+      sessions.push({ id: key, title: titleFromMessages(msgs), updatedAt: entry.updatedAt });
+    }
+  }
+
+  sessions.sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
+  res.json(sessions.slice(0, 50));
 });
 
-router.get("/:id/messages", async (req, res) => {
-  const q = config.bypassAuth
-    ? "SELECT body->>'transcript' AS transcript FROM fc_sessions WHERE id = $1 LIMIT 1"
-    : "SELECT body->>'transcript' AS transcript FROM fc_sessions WHERE id = $1 AND body->>'userId' = $2 LIMIT 1";
-  const params = config.bypassAuth
-    ? [req.params.id]
-    : [req.params.id, req.auth.userId];
+router.get("/:id/messages", (req, res) => {
+  const agents = config.bypassAuth ? allAgentIds() : req.auth?.userId ? [req.auth.userId] : [];
 
-  const { rows } = await pool.query(q, params);
-  res.json(rows[0]?.transcript ? parseTranscript(rows[0].transcript) : []);
+  for (const agentId of agents) {
+    const entry = readIndex(agentId)[req.params.id];
+    if (!entry) continue;
+    const transcript = readTranscript(agentId, entry.sessionId);
+    if (transcript) return res.json(parseTranscript(transcript));
+  }
+
+  res.json([]);
 });
 
 export default router;

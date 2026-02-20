@@ -6,7 +6,7 @@ export default function IntegrationsPage() {
       <div className="mx-auto max-w-4xl">
         <h2 className="mb-1 text-2xl font-semibold">Integrations</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Connect your financial accounts to unlock AI-powered insights.
+          Connect your apps to and let your AI friend manage them.
         </p>
         <IntegrationGrid />
       </div>

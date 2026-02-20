@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
-import pool from "../../lib/db.js";
 import { getEnabledToolPatterns } from "../../integrations.config.js";
 
 const log = logger.child({ src: "openclaw" });
@@ -126,15 +125,18 @@ export async function startOpenClaw(): Promise<void> {
       ? ["openclaw", "gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"]
       : ["gateway", "--port", String(OC_PORT), "--bind", "loopback", "--allow-unconfigured"];
 
-  // Pre-populate agents from PG
+  // Discover agents from local dirs (populated by S3 restore or previous runs)
+  const home = process.env.HOME ?? "/tmp";
+  const agentsDir = path.join(home, ".openclaw/agents");
   let agentIds: string[] = [];
   try {
-    const { rows } = await pool.query("SELECT id FROM fc_users");
-    agentIds = rows.map((r) => r.id as string);
+    agentIds = fs.readdirSync(agentsDir).filter((n) =>
+      fs.statSync(path.join(agentsDir, n)).isDirectory()
+    );
     for (const id of agentIds) knownAgents.add(id);
-    log.info(`Pre-populated ${agentIds.length} agents from PG`);
-  } catch (err) {
-    log.warn({ err }, "Could not pre-populate agents from PG");
+    log.info(`Discovered ${agentIds.length} local agents`);
+  } catch {
+    log.info("No local agents found, starting fresh");
   }
 
   const runtimeConfig = buildRuntimeConfig(agentIds);
