@@ -113,6 +113,15 @@ export async function startOpenClaw(): Promise<void> {
 export function stopOpenClaw(): void {
   if (reusedExisting) return;
   child?.kill("SIGTERM");
+  child = null;
+}
+
+export async function restartOpenClaw(): Promise<void> {
+  log.info("Restarting OpenClaw gateway...");
+  reusedExisting = false;
+  stopOpenClaw();
+  await startOpenClaw();
+  log.info("OpenClaw gateway restarted.");
 }
 
 export function ocToken(): string {

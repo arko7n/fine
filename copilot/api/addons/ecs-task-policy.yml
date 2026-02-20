@@ -1,0 +1,37 @@
+Parameters:
+  App:
+    Type: String
+  Env:
+    Type: String
+  Name:
+    Type: String
+
+Resources:
+  EcsTaskPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EcsProvisionAccess
+            Effect: Allow
+            Action:
+              - ecs:DescribeTasks
+              - ecs:RunTask
+              - ecs:StopTask
+            Resource: "*"
+            Condition:
+              ArnEquals:
+                ecs:cluster: !Sub arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${App}-${Env}-Cluster*
+          - Sid: PassRoleForRunTask
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource: "*"
+            Condition:
+              StringLike:
+                iam:PassedToService: ecs-tasks.amazonaws.com
+
+Outputs:
+  EcsTaskPolicyArn:
+    Value: !Ref EcsTaskPolicy

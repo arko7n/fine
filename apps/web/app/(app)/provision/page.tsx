@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useProvision } from "@/hooks/use-provision";
+import { useFineUser } from "@/hooks/use-fine-user";
 import { ProvisionCard } from "@/components/provision/provision-card";
 
 export default function ProvisionPage() {
-  const { status, provision, isProvisioning } = useProvision();
+  const { status, provision, isProvisioning } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {

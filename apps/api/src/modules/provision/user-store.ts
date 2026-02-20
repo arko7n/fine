@@ -7,8 +7,8 @@ export type UserStatus = "provisioning" | "running" | "stopped";
 
 export type UserBody = {
   status: UserStatus;
-  taskArn?: string;
-  taskIp?: string;
+  instanceId?: string;
+  instanceIp?: string;
   provisionedAt?: string;
 };
 

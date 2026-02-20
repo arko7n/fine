@@ -74,7 +74,7 @@ const plugin = {
     api.on("gateway_start", async () => {
       const userId = process.env.USER_ID;
       if (!userId) {
-        api.logger.info("fine-persistence: no USER_ID set, skipping S3 restore");
+        api.logger.warn("fine-persistence: no USER_ID set, skipping S3 restore");
         return;
       }
 
@@ -96,7 +96,7 @@ const plugin = {
     api.on("agent_end", async () => {
       const userId = process.env.USER_ID;
       if (!userId) {
-        api.logger.info("fine-persistence: no USER_ID set, skipping S3 snapshot");
+        api.logger.warn("fine-persistence: no USER_ID set, skipping S3 snapshot");
         return;
       }
 

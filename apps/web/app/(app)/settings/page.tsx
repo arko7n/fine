@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,17 +22,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { deprovisionTask } from "@/lib/api";
+import { useFineUser } from "@/hooks/use-fine-user";
 
 export default function SettingsPage() {
+  const { status, deprovision, isProvisioning } = useFineUser();
   const router = useRouter();
-  const [isDeprovisioning, setIsDeprovisioning] = useState(false);
 
-  async function handleDeprovision() {
-    setIsDeprovisioning(true);
-    await deprovisionTask();
-    router.replace("/provision");
-  }
+  useEffect(() => {
+    if (status === "stopped") {
+      router.replace("/provision");
+    }
+  }, [status, router]);
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -55,8 +55,8 @@ export default function SettingsPage() {
           <CardContent>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isDeprovisioning}>
-                  {isDeprovisioning ? (
+                <Button variant="destructive" disabled={isProvisioning}>
+                  {isProvisioning ? (
                     <>
                       <Loader2 className="animate-spin" />
                       Deprovisioning...
@@ -77,7 +77,7 @@ export default function SettingsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeprovision}>
+                  <AlertDialogAction onClick={deprovision}>
                     Deprovision
                   </AlertDialogAction>
                 </AlertDialogFooter>

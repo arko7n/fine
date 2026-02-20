@@ -5,6 +5,7 @@ import { ECSClient, RunTaskCommand, DescribeTasksCommand, StopTaskCommand } from
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
 import { getUser, upsertUser, updateUserBody, type UserStatus } from "./user-store.js";
+import { restartOpenClaw } from "../openclaw/openclaw.service.js";
 
 const log = logger.child({ src: "provision.service" });
 
@@ -64,15 +65,15 @@ export async function discoverEcsConfig(): Promise<void> {
 
   const taskMeta = await fetch(`${metadataUri}/task`).then((r) => r.json());
   const cluster: string = taskMeta.Cluster;
-  const taskArn: string = taskMeta.TaskARN;
+  const instanceId: string = taskMeta.TaskARN;
   const containerName: string = taskMeta.Containers?.[0]?.Name;
 
   const described = await ecs.send(
-    new DescribeTasksCommand({ cluster, tasks: [taskArn] }),
+    new DescribeTasksCommand({ cluster, tasks: [instanceId] }),
   );
 
   const task = described.tasks?.[0];
-  if (!task) throw new Error(`Failed to describe own task ${taskArn}`);
+  if (!task) throw new Error(`Failed to describe own task ${instanceId}`);
 
   const taskDefinition = task.taskDefinitionArn!;
 
@@ -113,7 +114,8 @@ export async function provisionTask(userId: string): Promise<{ status: UserStatu
   if (config.useLocalBackend) {
     fs.writeFileSync(LOCAL_USER_FILE, userId);
     process.env.USER_ID = userId;
-    log.info({ userId }, "Local provision — saved USER_ID");
+    log.info({ userId }, "Local provision — saved USER_ID, restarting gateway");
+    await restartOpenClaw();
     return { status: "running" };
   }
 
@@ -154,11 +156,11 @@ export async function provisionTask(userId: string): Promise<{ status: UserStatu
 
   await upsertUser(userId, {
     status: "provisioning",
-    taskArn: task.taskArn,
+    instanceId: task.taskArn,
     provisionedAt: new Date().toISOString(),
   });
 
-  log.info({ userId, taskArn: task.taskArn }, "ECS task provisioned");
+  log.info({ userId, instanceId: task.taskArn }, "ECS task provisioned");
   return { status: "provisioning" };
 }
 
@@ -173,19 +175,19 @@ export async function resolveTaskStatus(userId: string): Promise<{ status: UserS
   }
 
   if (user.body.status !== "provisioning") {
-    const endpoint = user.body.status === "running" && user.body.taskIp
-      ? { ip: user.body.taskIp, port: TASK_PORT }
+    const endpoint = user.body.status === "running" && user.body.instanceIp
+      ? { ip: user.body.instanceIp, port: TASK_PORT }
       : undefined;
     return { status: user.body.status, endpoint };
   }
 
-  if (!user.body.taskArn) {
-    throw new Error(`User ${userId} is provisioning but has no taskArn`);
+  if (!user.body.instanceId) {
+    throw new Error(`User ${userId} is provisioning but has no instanceId`);
   }
 
   const cfg = requireEcsConfig();
   const described = await ecs.send(
-    new DescribeTasksCommand({ cluster: cfg.cluster, tasks: [user.body.taskArn] }),
+    new DescribeTasksCommand({ cluster: cfg.cluster, tasks: [user.body.instanceId] }),
   );
 
   const task = described.tasks?.[0];
@@ -206,10 +208,10 @@ export async function resolveTaskStatus(userId: string): Promise<{ status: UserS
     const privateIp = eni?.details?.find((d) => d.name === "privateIPv4Address")?.value;
 
     if (!privateIp) {
-      throw new Error(`Task ${user.body.taskArn} is RUNNING but has no private IP`);
+      throw new Error(`Task ${user.body.instanceId} is RUNNING but has no private IP`);
     }
 
-    await updateUserBody(userId, { status: "running", taskIp: privateIp });
+    await updateUserBody(userId, { status: "running", instanceIp: privateIp });
     return { status: "running", endpoint: { ip: privateIp, port: TASK_PORT } };
   }
 
@@ -229,17 +231,17 @@ export async function deprovisionTask(userId: string): Promise<{ status: UserSta
     return { status: "stopped" };
   }
 
-  if (user.body.taskArn) {
+  if (user.body.instanceId) {
     const cfg = requireEcsConfig();
     try {
       await ecs.send(new StopTaskCommand({
         cluster: cfg.cluster,
-        task: user.body.taskArn,
+        task: user.body.instanceId,
         reason: "User-initiated deprovision",
       }));
-      log.info({ userId, taskArn: user.body.taskArn }, "ECS task stopped");
+      log.info({ userId, instanceId: user.body.instanceId }, "ECS task stopped");
     } catch (err) {
-      log.warn({ err, userId, taskArn: user.body.taskArn }, "Failed to stop ECS task (may already be stopped)");
+      log.warn({ err, userId, instanceId: user.body.instanceId }, "Failed to stop ECS task (may already be stopped)");
     }
   }
 
@@ -249,6 +251,6 @@ export async function deprovisionTask(userId: string): Promise<{ status: UserSta
 
 export async function getTaskEndpoint(userId: string): Promise<TaskEndpoint | null> {
   const user = await getUser(userId);
-  if (!user || !user.body.taskIp) return null;
-  return { ip: user.body.taskIp, port: TASK_PORT, status: user.body.status };
+  if (!user || !user.body.instanceIp) return null;
+  return { ip: user.body.instanceIp, port: TASK_PORT, status: user.body.status };
 }

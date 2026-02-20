@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useProvision } from "@/hooks/use-provision";
+import { useFineUser } from "@/hooks/use-fine-user";
 
 export default function AppRoot() {
-  const { status } = useProvision();
+  const { status } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {

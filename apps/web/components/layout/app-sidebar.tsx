@@ -7,13 +7,13 @@ import { SidebarSessions } from "./sidebar-sessions";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useMobile } from "@/hooks/use-mobile";
-import { useSessionsMaybe } from "@/hooks/use-sessions";
+import { useFineUser } from "@/hooks/use-fine-user";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const ctx = useSessionsMaybe();
-  const showThreads = pathname.startsWith("/chat") && ctx;
+  const { hasProvisioned } = useFineUser();
+  const showSessions = pathname.startsWith("/chat") && hasProvisioned;
 
   return (
     <div className="flex h-full flex-col">
@@ -21,16 +21,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <h1 className="text-lg font-semibold tracking-tight">Myst</h1>
       </div>
       <SidebarNav onNavigate={onNavigate} />
-      {showThreads && (
+      {showSessions && (
         <>
           <Separator className="my-2" />
-          <SidebarSessions
-            sessions={ctx.sessions}
-            activeSessionId={ctx.activeSessionId}
-            onSelectSession={ctx.selectSession}
-            onNewChat={ctx.newChat}
-            onNavigate={onNavigate}
-          />
+          <SidebarSessions onNavigate={onNavigate} />
         </>
       )}
       <div className="mt-auto border-t px-4 py-3">

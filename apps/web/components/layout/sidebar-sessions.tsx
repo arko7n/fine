@@ -1,38 +1,49 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Plus, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { Session } from "@/hooks/use-sessions";
+import { fetchSessions, type Session } from "@/lib/api";
 
-type Props = {
-  sessions: Session[];
-  activeSessionId: string | null;
-  onSelectSession: (id: string) => void;
-  onNewChat: () => void;
-  onNavigate?: () => void;
-};
+export function SidebarSessions({ onNavigate }: { onNavigate?: () => void }) {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeSessionId = searchParams.get("s");
 
-export function SidebarSessions({
-  sessions,
-  activeSessionId,
-  onSelectSession,
-  onNewChat,
-  onNavigate,
-}: Props) {
+  useEffect(() => {
+    fetchSessions().then(setSessions);
+  }, []);
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      router.push(`/chat?s=${id}`);
+      onNavigate?.();
+    },
+    [router, onNavigate],
+  );
+
+  const handleNewChat = useCallback(() => {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    setSessions((prev) => [
+      { id, title: "New Chat", createdAt: now, updatedAt: now },
+      ...prev,
+    ]);
+    router.push(`/chat?s=${id}`);
+    onNavigate?.();
+  }, [router, onNavigate]);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-medium text-muted-foreground">Sessions</span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => {
-            onNewChat();
-            onNavigate?.();
-          }}
-        >
+        <span className="text-xs font-medium text-muted-foreground">
+          Sessions
+        </span>
+        <Button variant="ghost" size="icon-xs" onClick={handleNewChat}>
           <Plus className="size-4" />
         </Button>
       </div>
@@ -46,13 +57,10 @@ export function SidebarSessions({
           {sessions.map((s) => (
             <button
               key={s.id}
-              onClick={() => {
-                onSelectSession(s.id);
-                onNavigate?.();
-              }}
+              onClick={() => handleSelect(s.id)}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
-                activeSessionId === s.id && "bg-accent"
+                activeSessionId === s.id && "bg-accent",
               )}
             >
               <MessageSquare className="size-4 shrink-0 text-muted-foreground" />

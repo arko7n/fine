@@ -27,22 +27,22 @@ const plugin = {
         description: def.description,
         parameters: def.parameters,
 
-        async execute(_toolCallId: string, params: Record<string, unknown>, ctx?: { user?: string }) {
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
+          const userId = process.env.USER_ID;
+          if (!userId) throw new Error("USER_ID env var is not set");
+
           const res = await fetch(`${backendUrl}/api/internal/tools/invoke`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ app: def.app, action: def.action, params, userId: ctx?.user }),
+            body: JSON.stringify({ app: def.app, action: def.action, params, userId }),
           });
 
-          const data = await res.json();
           if (!res.ok) {
-            return {
-              content: [
-                { type: "text" as const, text: `Error: ${data.error ?? "Tool execution failed"}` },
-              ],
-            };
+            const data = await res.json();
+            throw new Error(data.error ?? "Tool execution failed");
           }
 
+          const data = await res.json();
           return {
             content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
           };

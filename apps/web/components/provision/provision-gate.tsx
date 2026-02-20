@@ -3,11 +3,11 @@
 import { type ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useProvision } from "@/hooks/use-provision";
+import { useFineUser } from "@/hooks/use-fine-user";
 
 /** Gates children behind provision status. Redirects to /provision if not running. */
 export function ProvisionGate({ children }: { children: ReactNode }) {
-  const { status } = useProvision();
+  const { status } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {
