@@ -50,17 +50,6 @@ export async function getConnections(userId: string): Promise<ConnectionRow[]> {
   return result.rows;
 }
 
-export async function getConnectionsByProvider(
-  userId: string,
-  provider: string
-): Promise<ConnectionRow[]> {
-  const result = await pool.query(
-    `SELECT id, body FROM connections WHERE body->>'userId' = $1 AND body->>'provider' = $2 ORDER BY body->>'createdAt' DESC`,
-    [userId, provider]
-  );
-  return result.rows;
-}
-
 export async function getConnection(id: string): Promise<ConnectionRow | null> {
   const result = await pool.query(
     `SELECT id, body FROM connections WHERE id = $1`,

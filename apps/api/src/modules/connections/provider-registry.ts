@@ -11,8 +11,6 @@ export interface ProviderHandler {
     payload: Record<string, unknown>
   ): Promise<ConnectionRow>;
 
-  getAgentContext?(connections: ConnectionRow[]): string | null;
-
   disconnect?(connectionId: string): Promise<void>;
 }
 

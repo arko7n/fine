@@ -7,6 +7,17 @@ export type PipedreamAppInfo = {
   imgSrc: string;
 };
 
+export async function listAccounts(externalUserId: string) {
+  const pd = getPipedreamClient();
+  const response = await pd.accounts.list({ externalUserId });
+  return response.data;
+}
+
+export async function deleteAccount(accountId: string) {
+  const pd = getPipedreamClient();
+  await pd.accounts.delete(accountId);
+}
+
 export async function searchApps(q?: string, limit = 20): Promise<PipedreamAppInfo[]> {
   const pd = getPipedreamClient();
   const response = await pd.apps.list({ q, limit, hasActions: true });

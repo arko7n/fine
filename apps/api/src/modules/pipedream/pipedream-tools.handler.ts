@@ -1,6 +1,6 @@
 import { registerToolHandler } from "../tools/tool-registry.js";
-import { getConnections } from "../connections/connection-store.js";
 import {
+  listAccounts,
   listActions,
   describeAction,
   runAction,
@@ -9,15 +9,13 @@ import {
 
 registerToolHandler("pipedream", "list_accounts", async (_params, userId) => {
   if (!userId) throw new Error("userId is required");
-  const connections = await getConnections(userId);
-  return connections
-    .filter((c) => c.body.credentials.pipedreamAccountId)
-    .map((c) => ({
-      provider: c.body.provider,
-      pipedreamAccountId: c.body.credentials.pipedreamAccountId,
-      appName: c.body.metadata.appName ?? c.body.provider,
-      status: c.body.status,
-    }));
+  const accounts = await listAccounts(userId);
+  return accounts.map((a) => ({
+    provider: a.app?.nameSlug ?? "",
+    pipedreamAccountId: a.id,
+    appName: a.app?.name ?? "",
+    status: a.healthy === false ? "error" : "active",
+  }));
 });
 
 registerToolHandler("pipedream", "list_actions", async (params) => {
@@ -34,12 +32,10 @@ registerToolHandler("pipedream", "run_action", async (params, userId) => {
   const actionKey = params.action_key as string;
   const configuredProps = (params.configured_props as Record<string, unknown>) ?? {};
 
-  // Inject authProvisionId for the app's connected account
-  const connections = await getConnections(userId);
-  const match = connections.find(
-    (c) =>
-      c.body.credentials.pipedreamAccountId &&
-      actionKey.startsWith(c.body.provider + "-"),
+  // Resolve authProvisionId from PD accounts
+  const accounts = await listAccounts(userId);
+  const match = accounts.find(
+    (a) => a.app?.nameSlug && actionKey.startsWith(a.app.nameSlug + "-"),
   );
   if (!match) {
     throw new Error(
@@ -47,10 +43,8 @@ registerToolHandler("pipedream", "run_action", async (params, userId) => {
     );
   }
 
-  const appSlug = match.body.provider;
-  configuredProps[appSlug] = {
-    authProvisionId: match.body.credentials.pipedreamAccountId as string,
-  };
+  const appSlug = match.app!.nameSlug;
+  configuredProps[appSlug] = { authProvisionId: match.id };
 
   return runAction(actionKey, userId, configuredProps);
 });

@@ -2,7 +2,6 @@ import type { ProviderHandler } from "../provider-registry.js";
 import type { ConnectionRow } from "../connection-store.js";
 import { insertConnection, removeConnection, getConnection } from "../connection-store.js";
 import { getPipedreamClient } from "../pipedream.service.js";
-import { bankAgentContext } from "./bank-context.js";
 import logger from "../../../lib/logger.js";
 
 const log = logger.child({ src: "bank-plaid-pipedream.handler" });
@@ -45,8 +44,6 @@ export const bankPlaidPipedreamHandler: ProviderHandler = {
     log.info({ userId, accountId }, "Bank connection created (plaid-pipedream)");
     return connection;
   },
-
-  getAgentContext: bankAgentContext,
 
   async disconnect(connectionId: string) {
     const connection = await getConnection(connectionId);

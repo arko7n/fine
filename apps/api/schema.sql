@@ -7,8 +7,8 @@ CREATE TABLE fc_users (
   id   TEXT PRIMARY KEY,
   body JSONB NOT NULL DEFAULT '{}'
 );
-CREATE INDEX IF NOT EXISTS idx_fc_users_status
-  ON fc_users ((body ->> 'status')); 
+CREATE INDEX IF NOT EXISTS idx_fc_users_provision_status
+  ON fc_users ((body ->> 'provisionStatus')); 
 
 -- Connections (linked accounts)
 CREATE TABLE IF NOT EXISTS connections (

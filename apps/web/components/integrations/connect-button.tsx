@@ -58,10 +58,7 @@ export function ConnectButton({ provider, onSuccess }: Props) {
 
         await pd.connectAccount({
           app: appSlug,
-          onSuccess: async (result) => {
-            await handleConnectCallback(provider, {
-              account_id: result.id,
-            });
+          onSuccess: async () => {
             onSuccess?.();
           },
         });

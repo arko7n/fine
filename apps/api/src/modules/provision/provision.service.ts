@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { ECSClient, RunTaskCommand, DescribeTasksCommand, DescribeServicesCommand, StopTaskCommand } from "@aws-sdk/client-ecs";
 import config from "../../config.js";
 import logger from "../../lib/logger.js";
-import { getUser, upsertUser, updateUserBody, type UserStatus } from "./user-store.js";
+import { getUser, upsertUser, updateUserBody, type ProvisionStatus } from "./user-store.js";
 import { restartOpenClaw } from "../openclaw/openclaw.service.js";
 
 const log = logger.child({ src: "provision.service" });
@@ -55,6 +55,11 @@ let ecsConfig: EcsConfig | null = null;
 export async function discoverEcsConfig(): Promise<void> {
   if (config.useLocalBackend) {
     log.info("useLocalBackend=true — skipping ECS discovery");
+    return;
+  }
+
+  if (process.env.USER_ID) {
+    log.info("Per-user task — skipping ECS discovery");
     return;
   }
 
@@ -117,21 +122,21 @@ function requireEcsConfig(): EcsConfig {
 export type TaskEndpoint = {
   ip: string;
   port: number;
-  status: UserStatus;
+  provisionStatus: ProvisionStatus;
 };
 
-export async function provisionTask(userId: string): Promise<{ status: UserStatus }> {
+export async function provisionTask(userId: string): Promise<{ provisionStatus: ProvisionStatus }> {
   if (config.useLocalBackend) {
     fs.writeFileSync(LOCAL_USER_FILE, userId);
     process.env.USER_ID = userId;
     log.info({ userId }, "Local provision — saved USER_ID, restarting gateway");
     await restartOpenClaw();
-    return { status: "running" };
+    return { provisionStatus: "running" };
   }
 
   const existing = await getUser(userId);
-  if (existing && (existing.body.status === "running" || existing.body.status === "provisioning")) {
-    return { status: existing.body.status };
+  if (existing && (existing.body.provisionStatus === "running" || existing.body.provisionStatus === "provisioning")) {
+    return { provisionStatus: existing.body.provisionStatus };
   }
 
   const cfg = requireEcsConfig();
@@ -165,30 +170,30 @@ export async function provisionTask(userId: string): Promise<{ status: UserStatu
   }
 
   await upsertUser(userId, {
-    status: "provisioning",
+    provisionStatus: "provisioning",
     instanceId: task.taskArn,
     provisionedAt: new Date().toISOString(),
   });
 
   log.info({ userId, instanceId: task.taskArn }, "ECS task provisioned");
-  return { status: "provisioning" };
+  return { provisionStatus: "provisioning" };
 }
 
-export async function resolveTaskStatus(userId: string): Promise<{ status: UserStatus; endpoint?: { ip: string; port: number } }> {
+export async function resolveTaskStatus(userId: string): Promise<{ provisionStatus: ProvisionStatus; endpoint?: { ip: string; port: number } }> {
   if (config.useLocalBackend) {
-    return { status: readLocalUserId() ? "running" : "stopped" };
+    return { provisionStatus: readLocalUserId() ? "running" : "stopped" };
   }
 
   const user = await getUser(userId);
   if (!user) {
-    return { status: "stopped" };
+    return { provisionStatus: "stopped" };
   }
 
-  if (user.body.status !== "provisioning") {
-    const endpoint = user.body.status === "running" && user.body.instanceIp
+  if (user.body.provisionStatus !== "provisioning") {
+    const endpoint = user.body.provisionStatus === "running" && user.body.instanceIp
       ? { ip: user.body.instanceIp, port: TASK_PORT }
       : undefined;
-    return { status: user.body.status, endpoint };
+    return { provisionStatus: user.body.provisionStatus, endpoint };
   }
 
   if (!user.body.instanceId) {
@@ -202,15 +207,15 @@ export async function resolveTaskStatus(userId: string): Promise<{ status: UserS
 
   const task = described.tasks?.[0];
   if (!task) {
-    await updateUserBody(userId, { status: "stopped" });
-    return { status: "stopped" };
+    await updateUserBody(userId, { provisionStatus: "stopped" });
+    return { provisionStatus: "stopped" };
   }
 
   const lastStatus = task.lastStatus?.toUpperCase();
 
   if (lastStatus === "STOPPED") {
-    await updateUserBody(userId, { status: "stopped" });
-    return { status: "stopped" };
+    await updateUserBody(userId, { provisionStatus: "stopped" });
+    return { provisionStatus: "stopped" };
   }
 
   if (lastStatus === "RUNNING") {
@@ -221,24 +226,24 @@ export async function resolveTaskStatus(userId: string): Promise<{ status: UserS
       throw new Error(`Task ${user.body.instanceId} is RUNNING but has no private IP`);
     }
 
-    await updateUserBody(userId, { status: "running", instanceIp: privateIp });
-    return { status: "running", endpoint: { ip: privateIp, port: TASK_PORT } };
+    await updateUserBody(userId, { provisionStatus: "running", instanceIp: privateIp });
+    return { provisionStatus: "running", endpoint: { ip: privateIp, port: TASK_PORT } };
   }
 
-  return { status: "provisioning" };
+  return { provisionStatus: "provisioning" };
 }
 
-export async function deprovisionTask(userId: string): Promise<{ status: UserStatus }> {
+export async function deprovisionTask(userId: string): Promise<{ provisionStatus: ProvisionStatus }> {
   if (config.useLocalBackend) {
     try { fs.unlinkSync(LOCAL_USER_FILE); } catch { /* already gone */ }
     delete process.env.USER_ID;
     log.info({ userId }, "Local deprovision — removed USER_ID");
-    return { status: "stopped" };
+    return { provisionStatus: "stopped" };
   }
 
   const user = await getUser(userId);
-  if (!user || user.body.status === "stopped") {
-    return { status: "stopped" };
+  if (!user || user.body.provisionStatus === "stopped") {
+    return { provisionStatus: "stopped" };
   }
 
   if (user.body.instanceId) {
@@ -255,12 +260,12 @@ export async function deprovisionTask(userId: string): Promise<{ status: UserSta
     }
   }
 
-  await updateUserBody(userId, { status: "stopped" });
-  return { status: "stopped" };
+  await updateUserBody(userId, { provisionStatus: "stopped" });
+  return { provisionStatus: "stopped" };
 }
 
 export async function getTaskEndpoint(userId: string): Promise<TaskEndpoint | null> {
   const user = await getUser(userId);
   if (!user || !user.body.instanceIp) return null;
-  return { ip: user.body.instanceIp, port: TASK_PORT, status: user.body.status };
+  return { ip: user.body.instanceIp, port: TASK_PORT, provisionStatus: user.body.provisionStatus };
 }

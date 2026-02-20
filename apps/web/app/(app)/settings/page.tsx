@@ -25,14 +25,14 @@ import {
 import { useFineUser } from "@/hooks/use-fine-user";
 
 export default function SettingsPage() {
-  const { status, deprovision, isProvisioning } = useFineUser();
+  const { provisionStatus, deprovision, isProvisioning } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "stopped") {
+    if (provisionStatus === "stopped") {
       router.replace("/provision");
     }
-  }, [status, router]);
+  }, [provisionStatus, router]);
 
   return (
     <div className="flex-1 overflow-y-auto p-6">

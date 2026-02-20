@@ -51,8 +51,8 @@ function userTaskProxy(req: express.Request, res: express.Response) {
 
   // ECS: resolve user's task endpoint
   getTaskEndpoint(userId).then((endpoint) => {
-    if (!endpoint || endpoint.status !== "running") {
-      res.status(503).json({ error: "Task not running", status: endpoint?.status ?? "stopped" });
+    if (!endpoint || endpoint.provisionStatus !== "running") {
+      res.status(503).json({ error: "Task not running", provisionStatus: endpoint?.provisionStatus ?? "stopped" });
       return;
     }
     proxyTo(req, res, endpoint.ip, endpoint.port);

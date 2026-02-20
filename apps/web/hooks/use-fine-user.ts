@@ -20,7 +20,7 @@ import {
 const POLL_INTERVAL = 3000;
 
 type FineUserContext = {
-  status: ProvisionStatus | null;
+  provisionStatus: ProvisionStatus | null;
   hasProvisioned: boolean;
   isProvisioning: boolean;
   provision: () => Promise<void>;
@@ -30,7 +30,7 @@ type FineUserContext = {
 const Ctx = createContext<FineUserContext | null>(null);
 
 export function FineUserProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<ProvisionStatus | null>(null);
+  const [provisionStatus, setProvisionStatus] = useState<ProvisionStatus | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -43,8 +43,8 @@ export function FineUserProvider({ children }: { children: ReactNode }) {
 
   const poll = useCallback(async () => {
     const me = await fetchMe();
-    setStatus(me.status);
-    if (me.status === "running" || me.status === "stopped") {
+    setProvisionStatus(me.provisionStatus);
+    if (me.provisionStatus === "running" || me.provisionStatus === "stopped") {
       setIsProvisioning(false);
       stopPolling();
     }
@@ -57,8 +57,8 @@ export function FineUserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchMe().then((me) => {
-      setStatus(me.status);
-      if (me.status === "provisioning") {
+      setProvisionStatus(me.provisionStatus);
+      if (me.provisionStatus === "provisioning") {
         setIsProvisioning(true);
         startPolling();
       }
@@ -69,10 +69,10 @@ export function FineUserProvider({ children }: { children: ReactNode }) {
   const provision = useCallback(async () => {
     setIsProvisioning(true);
     const result = await provisionTask();
-    setStatus(result.status);
-    if (result.status === "provisioning") {
+    setProvisionStatus(result.provisionStatus);
+    if (result.provisionStatus === "provisioning") {
       startPolling();
-    } else if (result.status === "running") {
+    } else if (result.provisionStatus === "running") {
       setIsProvisioning(false);
     }
   }, [startPolling]);
@@ -80,13 +80,13 @@ export function FineUserProvider({ children }: { children: ReactNode }) {
   const deprovision = useCallback(async () => {
     setIsProvisioning(true);
     const result = await deprovisionTask();
-    setStatus(result.status);
+    setProvisionStatus(result.provisionStatus);
     setIsProvisioning(false);
   }, []);
 
   const value: FineUserContext = {
-    status,
-    hasProvisioned: status === "running",
+    provisionStatus,
+    hasProvisioned: provisionStatus === "running",
     isProvisioning,
     provision,
     deprovision,

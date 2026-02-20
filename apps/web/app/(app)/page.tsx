@@ -6,16 +6,16 @@ import { Loader2 } from "lucide-react";
 import { useFineUser } from "@/hooks/use-fine-user";
 
 export default function AppRoot() {
-  const { status } = useFineUser();
+  const { provisionStatus } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "running") {
+    if (provisionStatus === "running") {
       router.replace("/chat");
-    } else if (status === "stopped") {
+    } else if (provisionStatus === "stopped") {
       router.replace("/provision");
     }
-  }, [status, router]);
+  }, [provisionStatus, router]);
 
   return (
     <div className="flex h-full items-center justify-center">

@@ -3,10 +3,10 @@ import logger from "../../lib/logger.js";
 
 const log = logger.child({ src: "user-store" });
 
-export type UserStatus = "provisioning" | "running" | "stopped";
+export type ProvisionStatus = "provisioning" | "running" | "stopped";
 
 export type UserBody = {
-  status: UserStatus;
+  provisionStatus: ProvisionStatus;
   instanceId?: string;
   instanceIp?: string;
   provisionedAt?: string;
@@ -32,7 +32,7 @@ export async function upsertUser(userId: string, body: UserBody): Promise<UserRo
      RETURNING id, body`,
     [userId, JSON.stringify(body)],
   );
-  log.info({ userId, status: body.status }, "Upserted user");
+  log.info({ userId, provisionStatus: body.provisionStatus }, "Upserted user");
   return result.rows[0];
 }
 

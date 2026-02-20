@@ -139,16 +139,16 @@ export async function disconnectConnection(id: string): Promise<void> {
 export type ProvisionStatus = "provisioning" | "running" | "stopped";
 
 export type MeResponse = {
-  status: ProvisionStatus;
+  provisionStatus: ProvisionStatus;
   endpoint?: { ip: string; port: number };
 };
 
-export async function provisionTask(): Promise<{ status: ProvisionStatus }> {
+export async function provisionTask(): Promise<{ provisionStatus: ProvisionStatus }> {
   const res = await authedFetch(`${base}/api/provision`, { method: "POST" });
   return res.json();
 }
 
-export async function deprovisionTask(): Promise<{ status: ProvisionStatus }> {
+export async function deprovisionTask(): Promise<{ provisionStatus: ProvisionStatus }> {
   const res = await authedFetch(`${base}/api/provision`, { method: "DELETE" });
   return res.json();
 }

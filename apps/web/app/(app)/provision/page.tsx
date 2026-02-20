@@ -6,14 +6,14 @@ import { useFineUser } from "@/hooks/use-fine-user";
 import { ProvisionCard } from "@/components/provision/provision-card";
 
 export default function ProvisionPage() {
-  const { status, provision, isProvisioning } = useFineUser();
+  const { provisionStatus, provision, isProvisioning } = useFineUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "running") {
+    if (provisionStatus === "running") {
       router.replace("/chat");
     }
-  }, [status, router]);
+  }, [provisionStatus, router]);
 
   return (
     <ProvisionCard onProvision={provision} isProvisioning={isProvisioning} />
